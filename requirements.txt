@@ -1,0 +1,7 @@
+# No third-party dependencies.
+#
+# All extractors are Python standard library only (Python 3.10+):
+#   argparse, concurrent.futures, csv, glob, html, io, json, math,
+#   os, re, statistics, sys, time, urllib.
+#
+# Just run them with a system Python 3.10 or newer — nothing to pip install.

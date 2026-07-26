@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+.DS_Store
+
+# Extracted datasets — NEVER commit output data (can be ~500MB+)
+output/
+data/
+*.pdf
+nc-fishing-guide-data/
