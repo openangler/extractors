@@ -1,0 +1,185 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "FID": 1,
+    "Excel_ID": 4,
+    "Displ_Name": "Cranberry Creek",
+    "MHTW_Reach": " ",
+    "FIRST_Reg_": "Cranberry Creek",
+    "FIRST_Reg1": "entire stream",
+    "FIRST_WRC_": "Hatchery Supported Trout Waters",
+    "FIRST_MHTW": " ",
+    "WEB_Refere": "https://www.ncwildlife.gov/fishing/trout-fishing-north-carolina",
+    "Shape__Length": 2925.426808465883,
+    "WRC_Class": "Hatchery Supported Trout Waters"
+   },
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       -81.25526,
+       36.3972
+      ],
+      [
+       -81.25524,
+       36.39731
+      ],
+      [
+       -81.25523,
+       36.39768
+      ]
+     ],
+     [
+      [
+       -81.25537,
+       36.39806
+      ],
+      [
+       -81.2553,
+       36.39804
+      ],
+      [
+       -81.25523,
+       36.39807
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "FID": 13,
+    "Excel_ID": 20,
+    "Displ_Name": "Big Horse Creek",
+    "MHTW_Reach": " ",
+    "FIRST_Reg_": "Big Horse Creek",
+    "FIRST_Reg1": "portion from Virginia state line to Mud Creek at S.R. 1363, excluding tributaries",
+    "FIRST_WRC_": "Catch and Release/Artificial Flies and Lures Only Trout Waters",
+    "FIRST_MHTW": " ",
+    "WEB_Refere": "https://www.ncwildlife.gov/fishing/trout-fishing-north-carolina",
+    "Shape__Length": 9679.96082249755,
+    "WRC_Class": "Catch and Release/Artificial Flies and Lures Only Trout Waters"
+   },
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       -81.60633,
+       36.58736
+      ],
+      [
+       -81.60629,
+       36.58713
+      ],
+      [
+       -81.60631,
+       36.58696
+      ]
+     ],
+     [
+      [
+       -81.618,
+       36.58753
+      ],
+      [
+       -81.61785,
+       36.58718
+      ],
+      [
+       -81.61765,
+       36.58688
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "FID": 14,
+    "Excel_ID": 23,
+    "Displ_Name": "Big Horse Creek",
+    "MHTW_Reach": "S.R. 1324 Bridge to North Fork New River",
+    "FIRST_Reg_": "Big Horse Creek",
+    "FIRST_Reg1": "S.R. 1324 Bridge to North Fork New River",
+    "FIRST_WRC_": "Delayed Harvest Trout Waters",
+    "FIRST_MHTW": "Lansing",
+    "WEB_Refere": "https://www.ncwildlife.gov/fishing/trout-fishing-north-carolina",
+    "Shape__Length": 5014.137731639813,
+    "WRC_Class": "Delayed Harvest Trout Waters"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -81.51836,
+      36.50674
+     ],
+     [
+      -81.51825,
+      36.50647
+     ],
+     [
+      -81.51818,
+      36.50606
+     ],
+     [
+      -81.51815,
+      36.50598
+     ],
+     [
+      -81.51803,
+      36.50582
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "FID": 55,
+    "Excel_ID": 56,
+    "Displ_Name": "Birchfield Creek",
+    "MHTW_Reach": " ",
+    "FIRST_Reg_": "Birchfield Creek",
+    "FIRST_Reg1": "entire stream",
+    "FIRST_WRC_": "Wild Trout Waters",
+    "FIRST_MHTW": " ",
+    "WEB_Refere": "https://www.ncwildlife.gov/fishing/trout-fishing-north-carolina",
+    "Shape__Length": 1681.6281725997253,
+    "WRC_Class": "Wild Trout Waters"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -82.00762,
+      36.09237
+     ],
+     [
+      -82.00735,
+      36.09214
+     ],
+     [
+      -82.00679,
+      36.09149
+     ],
+     [
+      -82.00664,
+      36.09137
+     ],
+     [
+      -82.00647,
+      36.09127
+     ]
+    ]
+   }
+  }
+ ]
+}

@@ -13,18 +13,19 @@ Output -> trout-waters/pmtw-reaches.json     (the reach index)
 
     python3 build_pmtw_layer.py                # with elevation (1,809 EPQS calls)
     python3 build_pmtw_layer.py --no-elevation # fast, skip elevation
+    python3 build_pmtw_layer.py --out /data/nc-fishing-guide-data
 """
 
 import argparse
 import json
 import os
-import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-BASE = os.path.expanduser("~/onedrive/fishing/nc-fishing-guide-data")
-TW = os.path.join(BASE, "trout-waters")
+import _common
+from _common import AGENCY_FACTUAL, CURATED, FEDERAL
+
 EPQS = "https://epqs.nationalmap.gov/v1/json"
 
 # plain-language regulation summary per WRC classification (verify current regs
@@ -62,8 +63,8 @@ def midpoint(geom):
     return pts[len(pts) // 2]        # [lon, lat]
 
 
-def load_counties():
-    g = json.load(open(os.path.join(BASE, "reference-layers", "county-boundaries.geojson")))
+def load_counties(base):
+    g = json.load(open(os.path.join(base, "reference-layers", "county-boundaries.geojson")))
     props = g["features"][0]["properties"]
     namekey = next((k for k in props if "name" in k.lower() or "cnty" in k.lower()
                     or "county" in k.lower()), None)
@@ -113,37 +114,78 @@ def elevation(lat, lon):
         return None
 
 
+def reach_record(feature, counties):
+    """One PMTW GeoJSON feature -> one reach record. Pure; no elevation yet."""
+    p = feature["properties"]
+    mp = midpoint(feature["geometry"])
+    if not mp:
+        return None
+    lon, lat = mp[0], mp[1]
+    cls = p.get("WRC_Class")
+    mhtw = (p.get("FIRST_MHTW", "").strip() or p.get("MHTW_Reach", "").strip())
+    return {
+        "stream_name": p.get("Displ_Name"),
+        "reach": p.get("FIRST_Reg1") or p.get("FIRST_Reg_"),
+        "wrc_class": cls,
+        "regulation_summary": REGS.get(cls, "See NCWRC rules."),
+        "mountain_heritage": bool(mhtw and mhtw != " "),
+        "mhtw_reach": mhtw if (mhtw and mhtw != " ") else None,
+        "length_m": round(p.get("Shape__Length", 0)),
+        "midpoint": {"lat": round(lat, 5), "lon": round(lon, 5)},
+        "county": county_for(lon, lat, counties),
+        "elevation_m": None,
+        "ncwrc_link": p.get("WEB_Refere"),
+    }
+
+
+def artifact_tiers(with_elevation):
+    """Provenance/licence tier for every artifact this script writes."""
+    detail = {
+        "stream_name": AGENCY_FACTUAL, "reach": AGENCY_FACTUAL,
+        "wrc_class": AGENCY_FACTUAL, "mountain_heritage": AGENCY_FACTUAL,
+        "mhtw_reach": AGENCY_FACTUAL, "length_m": AGENCY_FACTUAL,
+        "midpoint": AGENCY_FACTUAL, "county": AGENCY_FACTUAL,
+        "ncwrc_link": AGENCY_FACTUAL,
+        "regulation_summary": CURATED,
+    }
+    tiers = [AGENCY_FACTUAL, CURATED]
+    if with_elevation:
+        detail["elevation_m"] = FEDERAL
+        tiers.append(FEDERAL)
+    return {
+        "trout-waters/pmtw-reaches.json": {
+            "tiers": tiers,
+            "tier_detail": detail,
+            "note": "NCWRC PMTW reach facts, plus a hand-written plain-language "
+                    "regulation_summary per class (curated, not NCWRC text)"
+                    + (", plus USGS 3DEP midpoint elevation." if with_elevation
+                       else ". Elevation skipped on this run.")},
+        "trout-waters/pmtw-summary.json": {
+            "tiers": [AGENCY_FACTUAL],
+            "note": "Counts by class and county, derived from NCWRC facts."},
+    }
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--no-elevation", action="store_true")
+    ap = argparse.ArgumentParser(description=__doc__.strip().split("\n\n")[0])
+    _common.add_out_arg(ap)
+    ap.add_argument("--no-elevation", action="store_true",
+                    help="skip the USGS 3DEP midpoint elevation lookups")
     a = ap.parse_args()
 
+    BASE = _common.resolve_out(a.out)
+    TW = os.path.join(BASE, "trout-waters")
+    print(f"Dataset -> {BASE}", flush=True)
+
     streams = json.load(open(os.path.join(TW, "pmtw-streams-2025.geojson")))
-    counties = load_counties()
+    counties = load_counties(BASE)
     print(f"Building layer from {len(streams['features'])} PMTW reaches ...", flush=True)
 
     reaches = []
     for f in streams["features"]:
-        p = f["properties"]
-        mp = midpoint(f["geometry"])
-        if not mp:
-            continue
-        lon, lat = mp[0], mp[1]
-        cls = p.get("WRC_Class")
-        mhtw = (p.get("FIRST_MHTW", "").strip() or p.get("MHTW_Reach", "").strip())
-        reaches.append({
-            "stream_name": p.get("Displ_Name"),
-            "reach": p.get("FIRST_Reg1") or p.get("FIRST_Reg_"),
-            "wrc_class": cls,
-            "regulation_summary": REGS.get(cls, "See NCWRC rules."),
-            "mountain_heritage": bool(mhtw and mhtw != " "),
-            "mhtw_reach": mhtw if (mhtw and mhtw != " ") else None,
-            "length_m": round(p.get("Shape__Length", 0)),
-            "midpoint": {"lat": round(lat, 5), "lon": round(lon, 5)},
-            "county": county_for(lon, lat, counties),
-            "elevation_m": None,
-            "ncwrc_link": p.get("WEB_Refere"),
-        })
+        r = reach_record(f, counties)
+        if r:
+            reaches.append(r)
     print(f"  midpoints + counties done ({sum(1 for r in reaches if r['county'])} "
           f"with county).", flush=True)
 
@@ -178,6 +220,8 @@ def main():
     }
     with open(os.path.join(TW, "pmtw-summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
+    _common.record_artifacts(BASE, "build_pmtw_layer.py",
+                             artifact_tiers(not a.no_elevation), run=summary)
     print("Done ->", os.path.join(TW, "pmtw-reaches.json"))
     print(json.dumps(summary, indent=2))
 

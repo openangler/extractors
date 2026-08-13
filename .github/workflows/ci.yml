@@ -14,3 +14,18 @@ jobs:
       # Byte-compile only. The extractors hit live public APIs, so we do NOT
       # run them in CI.
       - run: python -m py_compile nc/*.py
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # Unit tests for the pure logic (parsing, no-data normalisation, slug
+      # canonicalisation, provenance tiers). Standard library unittest, no
+      # dependencies, and no network: tests/context.py blocks sockets.
+      - run: python -m unittest discover -s tests -v

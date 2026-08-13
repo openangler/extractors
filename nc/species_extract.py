@@ -8,13 +8,16 @@ For every NC fish species profile on ncwildlife.gov (/species/<slug>) this pulls
   * every linked NCWRC document (/media/N/download): one-page fact sheets and
     Inland Fisheries research reports (river surveys, population assessments)
 
-Output -> ~/onedrive/fishing/nc-fishing-guide-data/species/
+Output -> <out>/species/
     profiles/<slug>.json      one structured profile each
     all-species.json          combined
     reports/<filename>.pdf     downloaded fact sheets & research reports
     reports/index.json         media-id -> filename/size/referencing species
+
+    python3 species_extract.py --out /data/nc-fishing-guide-data
 """
 
+import argparse
 import html
 import json
 import os
@@ -23,7 +26,9 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-OUT = os.path.expanduser("~/onedrive/fishing/nc-fishing-guide-data/species")
+import _common
+from _common import AGENCY_FACTUAL, AGENCY_MEDIA
+
 SITE = "https://www.ncwildlife.gov"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) nc-fishing-extract/1.0"
 
@@ -95,12 +100,79 @@ def parse_profile(slug, raw):
             **sections, "media_ids": media, "internal_doc_links": internal}
 
 
+SUFFIX_RE = re.compile(r"-\d+$")
+
+
+def canonical_slug(slug, taken=()):
+    """Drop NCWRC's URL de-dup suffix: 'largemouth-bass-0' -> 'largemouth-bass'.
+
+    The suffix is an artefact of how NCWRC numbers duplicate URL paths, not part
+    of the species' identity. Keeps the raw slug when the canonical form is
+    already claimed by a different species, so two profiles never collide.
+    """
+    base = SUFFIX_RE.sub("", slug)
+    if not base or base == slug:
+        return slug
+    return slug if base in taken else base
+
+
+def canonicalise(profiles):
+    """Rewrite each profile's slug to its canonical form.
+
+    The raw NCWRC URL stays in `url`; the raw slug is kept in `source_slug` and
+    listed in `aliases` so old /species/<slug> links stay resolvable.
+    """
+    raw_slugs = {p["slug"] for p in profiles}
+    assigned, out = set(), []
+    for p in sorted(profiles, key=lambda p: p["slug"]):
+        raw = p["slug"]
+        canon = canonical_slug(raw, (raw_slugs - {raw}) | assigned)
+        assigned.add(canon)
+        p = dict(p)
+        p["slug"] = canon
+        if canon != raw:
+            p["source_slug"] = raw
+            p["aliases"] = [raw]
+        out.append(p)
+    return sorted(out, key=lambda p: p["slug"])
+
+
+def artifact_tiers():
+    """Provenance/licence tier for every artifact this script writes."""
+    facts = ("Species facts scraped from NCWRC profile pages (habitat, "
+             "regulations, bait tips, places to fish).")
+    return {
+        "species/profiles/": {"tiers": [AGENCY_FACTUAL], "note": facts},
+        "species/all-species.json": {"tiers": [AGENCY_FACTUAL], "note": facts},
+        "species/reports/": {
+            "tiers": [AGENCY_MEDIA],
+            "note": "NCWRC fact sheets and Inland Fisheries research reports "
+                    "(PDFs) — creative works, not facts. Drop this tier for a "
+                    "redistributable or offline subset. Facts extracted out of "
+                    "these documents become agency-factual; the PDFs do not."},
+        "species/reports/index.json": {
+            "tiers": [AGENCY_FACTUAL],
+            "note": "Listing only (media id -> filename/size/species). Describes "
+                    "the agency-media PDFs; contains none of them."},
+    }
+
+
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.strip().split("\n\n")[0])
+    _common.add_out_arg(ap)
+    ap.add_argument("--species-list", metavar="FILE", default="/tmp/species_all.txt",
+                    help="file of NCWRC /species/<slug> URLs or slugs, one per "
+                         "line (default: /tmp/species_all.txt)")
+    args = ap.parse_args()
+    BASE = _common.resolve_out(args.out)
+    OUT = os.path.join(BASE, "species")
+    print(f"Output -> {OUT}", flush=True)
+
     os.makedirs(os.path.join(OUT, "profiles"), exist_ok=True)
     os.makedirs(os.path.join(OUT, "reports"), exist_ok=True)
 
     slugs = sorted({l.strip().split("/species/")[-1]
-                    for l in open("/tmp/species_all.txt") if l.strip()})
+                    for l in open(args.species_list) if l.strip()})
     print(f"[1/3] Parsing {len(slugs)} species profiles ...", flush=True)
 
     def do(slug):
@@ -124,7 +196,7 @@ def main():
         key = (p.get("name") or p["slug"]).lower()
         if key not in best or richness(p) > richness(best[key]):
             best[key] = p
-    profiles = sorted(best.values(), key=lambda p: p["slug"])
+    profiles = canonicalise(best.values())
     keep = {p["slug"] for p in profiles}
     for f in os.listdir(os.path.join(OUT, "profiles")):          # drop stale files
         if f.endswith(".json") and f[:-5] not in keep:
@@ -182,6 +254,14 @@ def main():
     good = [v for v in index.values() if "error" not in v]
     print(f"      downloaded {len(good)}/{len(index)} PDFs "
           f"({sum(v.get('bytes',0) for v in good)//1024} KB)", flush=True)
+
+    renamed = {p["source_slug"]: p["slug"] for p in profiles if "source_slug" in p}
+    if renamed:
+        print(f"      canonicalised {len(renamed)} slug(s): {renamed}", flush=True)
+    _common.record_artifacts(BASE, "species_extract.py", artifact_tiers(),
+                             run={"species": len(profiles),
+                                  "documents": len(index),
+                                  "canonicalised_slugs": renamed})
 
     print("[3/3] Done.", flush=True)
     print("Sample — flathead-catfish bait tips:", flush=True)

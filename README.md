@@ -23,7 +23,9 @@ extractors/
 │   ├── species_extract.py
 │   ├── enrich_usgs.py
 │   ├── build_pmtw_layer.py
-│   └── build_species_kb.py
+│   ├── build_species_kb.py
+│   └── _common.py          output-path resolution + the provenance manifest
+├── tests/         unit tests for the pure logic (stdlib unittest, no network)
 ├── requirements.txt
 ├── LICENSE
 └── README.md
@@ -53,6 +55,8 @@ Clone the repo and run any script directly with a system Python 3.10+:
 git clone https://github.com/openangler/extractors
 cd extractors
 
+export OPENANGLER_OUT=/path/to/nc-fishing-guide-data   # where the dataset lands
+
 # North Carolina pipeline (run in order — see nc/README.md)
 python3 nc/extract_nc_fishing.py       # 911 access points + photos + ArcGIS layers
 python3 nc/species_extract.py          # species profiles + research PDFs
@@ -60,6 +64,24 @@ python3 nc/enrich_usgs.py              # add USGS hydrology to each access point
 python3 nc/build_pmtw_layer.py         # classify the 1,809 trout-water reaches
 python3 nc/build_species_kb.py         # per-species habitat knowledge base
 ```
+
+Every script takes `--out DIR` as well; the precedence is `--out`, then
+`$OPENANGLER_OUT`, then the historical default
+(`~/onedrive/fishing/nc-fishing-guide-data`). Each step must be pointed at the
+same directory — steps 3–5 read what step 1 wrote.
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Standard-library `unittest`, no dependencies, and **no network** — the tests
+exercise the pure logic (response parsing, NHD no-data normalisation, slug
+canonicalisation, region mapping, provenance tiers) against fixtures captured
+from a produced dataset. `tests/context.py` blocks socket creation so a test can
+never quietly start scraping a public agency endpoint. CI runs these plus a
+byte-compile on Python 3.10 and 3.12.
 
 ## Output
 
@@ -69,12 +91,31 @@ pipeline. `output/`, `data/`, `*.pdf`, and the dataset directory are all
 `.gitignore`d. This repo ships **code only** — you produce the data yourself by
 running the extractors.
 
-> **Known TODO — output path configuration.** The scripts currently write to a
-> hardcoded local path (`~/onedrive/fishing/nc-fishing-guide-data/`) inherited
-> from their original home. Making the output directory configurable (via a CLI
-> flag or environment variable) is a planned improvement. For now, adjust the
-> `OUT` / `BASE` constant near the top of each script if you want a different
-> location.
+### Provenance and licence tiers
+
+Every run writes a `manifest.json` at the root of the dataset recording, per
+artifact, where its content came from:
+
+| Tier | Means |
+| --- | --- |
+| `federal-public-domain` | Work of the US federal government, 17 U.S.C. §105 — USGS 3DEP / NHDPlus HR / NWIS |
+| `agency-factual` | Facts extracted from a state agency source — coordinates, species-per-water, amenities, regulation classes |
+| `agency-media` | Creative works published by a state agency — site photos, PDFs |
+| `curated-original` | Hand-authored content (curated species files, plain-language regulation summaries) |
+| `personal` | Private user data; never produced by these extractors |
+
+The practical payoff is a one-line filter: dropping every artifact tagged
+`agency-media` (the 357 site photos and 158 PDFs) takes the NC dataset from
+~537 MB to ~110 MB, which is what makes it fit on a phone for offline use.
+
+Some artifacts genuinely merge tiers — `all-locations-enriched.json` joins NCWRC
+facts with USGS attributes, `all-species-knowledge.json` merges curated content,
+NCWRC profile text and USGS-derived envelopes. Those are marked `mixed: true`,
+carry a per-field `tier_detail`, and are listed under `mixed_tier_artifacts`.
+**Do not treat a mixed artifact's tier list as a file-level licence.** Splitting
+them is tracked separately.
+
+*Engineering documentation, not legal advice.*
 
 ## License
 

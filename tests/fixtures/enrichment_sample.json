@@ -1,0 +1,182 @@
+{
+  "1757": {
+    "locationID": 1757,
+    "locationName": "AVALON BEACH",
+    "waterbodyName": "KITTY HAWK BAY",
+    "elevation_m": 0.6,
+    "nhd_name": null,
+    "stream_order": -9,
+    "slope": null,
+    "drainage_area_sqkm": -9999,
+    "mean_annual_flow_cfs": 0.4,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "0204382800",
+      "name": "PASQUOTANK RIVER NEAR SOUTH MILLS, NC",
+      "km": 72.8,
+      "url": "https://waterdata.usgs.gov/monitoring-location/0204382800/"
+    }
+  },
+  "2269": {
+    "locationID": 2269,
+    "locationName": "AVALON PIER",
+    "waterbodyName": "ATLANTIC OCEAN",
+    "elevation_m": 2.4,
+    "nhd_name": null,
+    "stream_order": -9,
+    "slope": null,
+    "drainage_area_sqkm": -9999,
+    "mean_annual_flow_cfs": 10.4,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "0204382800",
+      "name": "PASQUOTANK RIVER NEAR SOUTH MILLS, NC",
+      "km": 73.1,
+      "url": "https://waterdata.usgs.gov/monitoring-location/0204382800/"
+    }
+  },
+  "1551": {
+    "locationID": 1551,
+    "locationName": "ANDERSON COMMUNITY PARK",
+    "waterbodyName": "FROG POND",
+    "elevation_m": 144.8,
+    "nhd_name": null,
+    "stream_order": 2,
+    "slope": 0.03981,
+    "drainage_area_sqkm": 1.3,
+    "mean_annual_flow_cfs": 0.6,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "02097464",
+      "name": "MORGAN CREEK NEAR WHITE CROSS, NC",
+      "km": 0.9,
+      "url": "https://waterdata.usgs.gov/monitoring-location/02097464/"
+    }
+  },
+  "1549": {
+    "locationID": 1549,
+    "locationName": "ALLEN",
+    "waterbodyName": "LAKE WYLIE (CATAWBA RESERVOIR)",
+    "elevation_m": 174.0,
+    "nhd_name": null,
+    "stream_order": 1,
+    "slope": 0.00084,
+    "drainage_area_sqkm": 2.8,
+    "mean_annual_flow_cfs": 1.0,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "0214297160",
+      "name": "BEAVERDAM CREEK AB WINDY GAP ROAD NR SHOPTON, NC",
+      "km": 4.2,
+      "url": "https://waterdata.usgs.gov/monitoring-location/0214297160/"
+    }
+  },
+  "1932": {
+    "locationID": 1932,
+    "locationName": "ARROWHEAD LAKE",
+    "waterbodyName": "ARROWHEAD LAKE",
+    "elevation_m": 66.6,
+    "nhd_name": null,
+    "stream_order": 1,
+    "slope": 0.00721,
+    "drainage_area_sqkm": 1.9,
+    "mean_annual_flow_cfs": 0.7,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "02126375",
+      "name": "PEE DEE R AT PEE DEE REFUGE NR ANSONVILLE, NC",
+      "km": 3.0,
+      "url": "https://waterdata.usgs.gov/monitoring-location/02126375/"
+    }
+  },
+  "1554": {
+    "locationID": 1554,
+    "locationName": "ASHE PARK POND",
+    "waterbodyName": "ASHE PARK POND",
+    "elevation_m": 936.6,
+    "nhd_name": "Ezra Fork",
+    "stream_order": 2,
+    "slope": 0.03644,
+    "drainage_area_sqkm": 1.5,
+    "mean_annual_flow_cfs": 1.2,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "03161000",
+      "name": "SOUTH FORK NEW RIVER NEAR JEFFERSON, NC",
+      "km": 7.5,
+      "url": "https://waterdata.usgs.gov/monitoring-location/03161000/"
+    }
+  },
+  "2375": {
+    "locationID": 2375,
+    "locationName": "ANDERSON POINT PARK",
+    "waterbodyName": "NEUSE RIVER",
+    "elevation_m": 62.9,
+    "nhd_name": "Neuse River",
+    "stream_order": 7,
+    "slope": 1e-05,
+    "drainage_area_sqkm": 2274.9,
+    "mean_annual_flow_cfs": 974.7,
+    "name_matched": true,
+    "nearest_gage": {
+      "id": "02087359",
+      "name": "WALNUT CREEK AT SUNNYBROOK DRIVE NR RALEIGH, NC",
+      "km": 3.9,
+      "url": "https://waterdata.usgs.gov/monitoring-location/02087359/"
+    }
+  },
+  "1550": {
+    "locationID": 1550,
+    "locationName": "AMBOY RIVERFRONT PARK",
+    "waterbodyName": "FRENCH BROAD RIVER",
+    "elevation_m": 602.3,
+    "nhd_name": "French Broad River",
+    "stream_order": 8,
+    "slope": 0.00127,
+    "drainage_area_sqkm": 2073.7,
+    "mean_annual_flow_cfs": 2201.9,
+    "name_matched": true,
+    "nearest_gage": {
+      "id": "03451200",
+      "name": "FRENCH BROAD RIVER AT HAYWOOD RD AT ASHEVILLE, NC",
+      "km": 2.0,
+      "url": "https://waterdata.usgs.gov/monitoring-location/03451200/"
+    }
+  },
+  "1729": {
+    "locationID": 1729,
+    "locationName": "APALACHIA",
+    "waterbodyName": "APALACHIA LAKE",
+    "elevation_m": 391.5,
+    "nhd_name": "Hiwassee River",
+    "stream_order": 7,
+    "slope": 0.00401,
+    "drainage_area_sqkm": 2508.8,
+    "mean_annual_flow_cfs": 2779.9,
+    "name_matched": false,
+    "nearest_gage": {
+      "id": "03550000",
+      "name": "VALLEY RIVER AT TOMOTLA, NC",
+      "km": 18.2,
+      "url": "https://waterdata.usgs.gov/monitoring-location/03550000/"
+    }
+  },
+  "2109": {
+    "locationID": 2109,
+    "locationName": "ANGLIN MILL BRIDGE",
+    "waterbodyName": "MAYO RIVER",
+    "elevation_m": 213.8,
+    "nhd_name": "Mayo River",
+    "stream_order": 6,
+    "slope": 0.00353,
+    "drainage_area_sqkm": 673.2,
+    "mean_annual_flow_cfs": 387.2,
+    "name_matched": true,
+    "nearest_gage": {
+      "id": "02070500",
+      "name": "MAYO RIVER NEAR PRICE, NC",
+      "km": 0.2,
+      "url": "https://waterdata.usgs.gov/monitoring-location/02070500/"
+    }
+  }
+}
