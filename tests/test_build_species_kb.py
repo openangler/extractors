@@ -112,18 +112,73 @@ class TestCuratedSlugCanonicalisation(unittest.TestCase):
             "largemouth-bass")
 
 
+def kb_record_keys():
+    """Top-level keys of the record main() writes, read out of the source.
+
+    The KB record is assembled inline in main(), which needs a full dataset to
+    run, so there is no fixture to check the rules against — and a hand-copied
+    list of keys would drift the moment someone adds a field. Reading the dict
+    literal keeps the tier rules honest without running or scraping anything.
+    """
+    import ast
+    import inspect
+    tree = ast.parse(inspect.getsource(kb))
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
+                and any(isinstance(t, ast.Subscript) for t in node.targets)):
+            keys = [k.value for k in node.value.keys
+                    if isinstance(k, ast.Constant)]
+            if "habitat_envelope" in keys:
+                return keys
+    raise AssertionError("could not find the kb[...] record literal in "
+                         "build_species_kb.py")
+
+
 class TestArtifactTiers(unittest.TestCase):
     def test_kb_is_mixed_and_names_the_curated_fields(self):
         import _common
         entries = _common.build_entries("build_species_kb.py", kb.artifact_tiers())
         e = entries["species-knowledge/all-species-knowledge.json"]
         self.assertTrue(e["mixed"])
-        self.assertEqual(e["tier_detail"]["baits_ranked"], _common.CURATED)
-        self.assertEqual(e["tier_detail"]["habitat_envelope"], _common.FEDERAL)
-        self.assertEqual(e["tier_detail"]["ncwrc_fishing_tips"],
+        fields = e["fields"]
+        self.assertEqual(_common.field_tier(fields, "baits_ranked"),
+                         _common.CURATED)
+        self.assertEqual(_common.field_tier(fields, "habitat_envelope.ranges"),
+                         _common.FEDERAL)
+        self.assertEqual(_common.field_tier(fields, "ncwrc_fishing_tips"),
                          _common.AGENCY_FACTUAL)
         self.assertEqual(entries["species-knowledge/curated/"]["tiers"],
                          [_common.CURATED])
+
+    def test_every_field_the_kb_record_carries_has_a_tier(self):
+        import _common
+        fields = _common.build_entries("build_species_kb.py", kb.artifact_tiers())[
+            "species-knowledge/all-species-knowledge.json"]["fields"]
+        untagged = [k for k in kb_record_keys() + ["aliases"]
+                    if _common.field_tier(fields, k) is None]
+        self.assertEqual(untagged, [], f"untagged KB field(s): {untagged}")
+
+    def test_the_envelope_numbers_are_federal_but_the_prose_is_not(self):
+        """Longest-match precedence, at the one place inside the envelope it matters."""
+        import _common
+        fields = _common.build_entries("build_species_kb.py", kb.artifact_tiers())[
+            "species-knowledge/all-species-knowledge.json"]["fields"]
+        self.assertEqual(
+            _common.field_tier(fields, "habitat_envelope.ranges.stream_order.p10"),
+            _common.FEDERAL)
+        self.assertEqual(_common.field_tier(fields, "habitat_envelope.derived_from"),
+                         _common.CURATED)
+
+    def test_the_per_species_files_carry_the_same_rules_as_the_combined_file(self):
+        """Both are read directly by consumers, so both must filter identically."""
+        import _common
+        entries = _common.build_entries("build_species_kb.py", kb.artifact_tiers())
+        combined = entries["species-knowledge/all-species-knowledge.json"]
+        per_file = entries["species-knowledge/kb/"]
+        self.assertEqual(combined["fields"]["rules"], per_file["fields"]["rules"])
+        self.assertEqual(combined["fields"]["records"], "map")
+        self.assertEqual(per_file["fields"]["records"], "object")
+        self.assertEqual(per_file["role"], _common.QUERY)
 
 
 if __name__ == "__main__":

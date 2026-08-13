@@ -27,7 +27,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import _common
-from _common import AGENCY_FACTUAL, AGENCY_MEDIA
+from _common import AGENCY_FACTUAL, AGENCY_MEDIA, ARCHIVE, MEDIA, QUERY
 
 SITE = "https://www.ncwildlife.gov"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) nc-fishing-extract/1.0"
@@ -138,22 +138,29 @@ def canonicalise(profiles):
 
 
 def artifact_tiers():
-    """Provenance/licence tier for every artifact this script writes."""
+    """Provenance tier and role for every artifact this script writes."""
     facts = ("Species facts scraped from NCWRC profile pages (habitat, "
              "regulations, bait tips, places to fish).")
     return {
-        "species/profiles/": {"tiers": [AGENCY_FACTUAL], "note": facts},
-        "species/all-species.json": {"tiers": [AGENCY_FACTUAL], "note": facts},
+        "species/all-species.json": {
+            "tiers": [AGENCY_FACTUAL], "role": QUERY, "note": facts},
+        "species/profiles/": {
+            "tiers": [AGENCY_FACTUAL], "role": ARCHIVE,
+            "derived_from": ["species/all-species.json"],
+            "note": facts + " One file per species; the same records as "
+                    "all-species.json, split for direct lookup."},
         "species/reports/": {
-            "tiers": [AGENCY_MEDIA],
+            "tiers": [AGENCY_MEDIA], "role": MEDIA,
             "note": "NCWRC fact sheets and Inland Fisheries research reports "
                     "(PDFs) — creative works, not facts. Drop this tier for a "
                     "redistributable or offline subset. Facts extracted out of "
                     "these documents become agency-factual; the PDFs do not."},
         "species/reports/index.json": {
-            "tiers": [AGENCY_FACTUAL],
+            "tiers": [AGENCY_FACTUAL], "role": QUERY,
             "note": "Listing only (media id -> filename/size/species). Describes "
-                    "the agency-media PDFs; contains none of them."},
+                    "the agency-media PDFs; contains none of them, and stays "
+                    "useful in a media-free bundle because the knowledge base "
+                    "links to reports by media id."},
     }
 
 

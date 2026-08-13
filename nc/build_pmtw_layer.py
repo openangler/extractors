@@ -24,7 +24,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import _common
-from _common import AGENCY_FACTUAL, CURATED, FEDERAL
+from _common import AGENCY_FACTUAL, CURATED, FEDERAL, QUERY
 
 EPQS = "https://epqs.nationalmap.gov/v1/json"
 
@@ -138,30 +138,31 @@ def reach_record(feature, counties):
     }
 
 
-def artifact_tiers(with_elevation):
-    """Provenance/licence tier for every artifact this script writes."""
-    detail = {
+def artifact_tiers(with_elevation, sample=None):
+    """Provenance tier and role for every artifact this script writes."""
+    rules = {
         "stream_name": AGENCY_FACTUAL, "reach": AGENCY_FACTUAL,
         "wrc_class": AGENCY_FACTUAL, "mountain_heritage": AGENCY_FACTUAL,
         "mhtw_reach": AGENCY_FACTUAL, "length_m": AGENCY_FACTUAL,
         "midpoint": AGENCY_FACTUAL, "county": AGENCY_FACTUAL,
         "ncwrc_link": AGENCY_FACTUAL,
+        # written by this script, not by NCWRC
         "regulation_summary": CURATED,
+        # the elevation_m slot exists either way; --no-elevation leaves it null
+        "elevation_m": FEDERAL,
     }
-    tiers = [AGENCY_FACTUAL, CURATED]
-    if with_elevation:
-        detail["elevation_m"] = FEDERAL
-        tiers.append(FEDERAL)
     return {
         "trout-waters/pmtw-reaches.json": {
-            "tiers": tiers,
-            "tier_detail": detail,
+            "tiers": [AGENCY_FACTUAL, CURATED, FEDERAL], "role": QUERY,
+            "fields": {"records": "list", "rules": rules, "sample": sample},
             "note": "NCWRC PMTW reach facts, plus a hand-written plain-language "
                     "regulation_summary per class (curated, not NCWRC text)"
                     + (", plus USGS 3DEP midpoint elevation." if with_elevation
-                       else ". Elevation skipped on this run.")},
+                       else ". Elevation skipped on this run: elevation_m is "
+                            "null in every record.")},
         "trout-waters/pmtw-summary.json": {
-            "tiers": [AGENCY_FACTUAL],
+            "tiers": [AGENCY_FACTUAL], "role": QUERY,
+            "derived_from": ["trout-waters/pmtw-reaches.json"],
             "note": "Counts by class and county, derived from NCWRC facts."},
     }
 
@@ -221,7 +222,8 @@ def main():
     with open(os.path.join(TW, "pmtw-summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
     _common.record_artifacts(BASE, "build_pmtw_layer.py",
-                             artifact_tiers(not a.no_elevation), run=summary)
+                             artifact_tiers(not a.no_elevation, sample=reaches),
+                             run=summary)
     print("Done ->", os.path.join(TW, "pmtw-reaches.json"))
     print(json.dumps(summary, indent=2))
 

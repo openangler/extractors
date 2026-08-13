@@ -87,6 +87,31 @@ class TestArtifactTiers(unittest.TestCase):
         self.assertFalse(any(_common.AGENCY_MEDIA in e["tiers"]
                              for e in entries.values()))
 
+    def test_geometry_is_the_same_tier_as_the_data_but_a_different_role(self):
+        """Issue #3: tier alone cannot separate 100 MB of GeoJSON from 1 MB of JSON."""
+        import _common
+        counts = {"Mountains": 239}
+        layers = {"reference-layers/county-boundaries.geojson": "..."}
+        entries = _common.build_entries(
+            "extract_nc_fishing.py", ex.artifact_tiers(counts, layers, True))
+        geo = entries["reference-layers/county-boundaries.geojson"]
+        data = entries["fishing-areas/all-locations.json"]
+        self.assertEqual(geo["tiers"], data["tiers"])
+        self.assertEqual(geo["role"], _common.GEOMETRY)
+        self.assertEqual(data["role"], _common.QUERY)
+        self.assertEqual(entries["fishing-areas/mountains/photos/"]["role"],
+                         _common.MEDIA)
+
+    def test_redundant_views_say_what_they_duplicate(self):
+        import _common
+        entries = _common.build_entries(
+            "extract_nc_fishing.py", ex.artifact_tiers({"Mountains": 239}, {}, False))
+        for relpath in ("fishing-areas/mountains/locations.json",
+                        "fishing-areas/mountains/locations.csv"):
+            self.assertEqual(entries[relpath]["role"], _common.ARCHIVE)
+            self.assertEqual(entries[relpath]["derived_from"],
+                             ["fishing-areas/all-locations.json"])
+
 
 if __name__ == "__main__":
     unittest.main()

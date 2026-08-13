@@ -32,7 +32,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import _common
-from _common import AGENCY_FACTUAL, FEDERAL
+from _common import AGENCY_FACTUAL, ARCHIVE, FEDERAL, QUERY
 
 EPQS = "https://epqs.nationalmap.gov/v1/json"
 NHD = "https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/3/query"
@@ -168,30 +168,44 @@ def nhd_reach(lat, lon, waterbody):
     return nhd_pick(feats, waterbody)
 
 
-def artifact_tiers(full_run):
-    """Provenance/licence tier for every artifact this script writes."""
-    usgs_fields = {f: FEDERAL for f in
-                   ("elevation_m", "stream_order", "slope", "drainage_area_sqkm",
-                    "mean_annual_flow_cfs", "nhd_name", "name_matched",
-                    "nearest_gage")}
+# The three fields copied straight off the NCWRC site record so the enrichment
+# is readable on its own. Everything else in a record is measured by USGS.
+IDENTITY = ("locationID", "locationName", "waterbodyName")
+MEASURED = ("elevation_m", "stream_order", "slope", "drainage_area_sqkm",
+            "mean_annual_flow_cfs", "nhd_name", "name_matched", "nearest_gage")
+
+
+def artifact_tiers(full_run, sample=None, merged_sample=None):
+    """Provenance tier and role for every artifact this script writes."""
+    rules = {f: FEDERAL for f in MEASURED}
+    rules.update({f: AGENCY_FACTUAL for f in IDENTITY})
     arts = {
         "fishing-areas/enrichment.json": {
-            "tiers": [FEDERAL, AGENCY_FACTUAL],
-            "tier_detail": dict(usgs_fields, locationID=AGENCY_FACTUAL,
-                                locationName=AGENCY_FACTUAL,
-                                waterbodyName=AGENCY_FACTUAL),
+            "tiers": [FEDERAL, AGENCY_FACTUAL], "role": QUERY,
+            # Deliberately no default: an untagged new field must not silently
+            # inherit "federal", which is the permissive direction.
+            "fields": {"records": "map", "rules": rules, "sample": sample},
             "note": "USGS 3DEP / NHDPlus HR / NWIS attributes, keyed by NCWRC "
                     "locationID. The three identity fields are copied from "
                     "NCWRC; every measured attribute is federal."},
     }
     if full_run:
+        merged_rules = {"usgs": FEDERAL}
+        # Longest match wins, so the identity fields carried into the usgs block
+        # stay NCWRC's even though the block as a whole is federal.
+        merged_rules.update({f"usgs.{f}": AGENCY_FACTUAL for f in IDENTITY})
         arts["fishing-areas/all-locations-enriched.json"] = {
-            "tiers": [AGENCY_FACTUAL, FEDERAL],
-            "tier_detail": {"<NCWRC site record>": AGENCY_FACTUAL,
-                            "usgs": FEDERAL},
+            "tiers": [AGENCY_FACTUAL, FEDERAL], "role": ARCHIVE,
+            "derived_from": ["fishing-areas/all-locations.json",
+                             "fishing-areas/enrichment.json"],
+            "fields": {"records": "list", "rules": merged_rules,
+                       # Safe direction: an unrecognised field is NCWRC's, not
+                       # federal.
+                       "default": AGENCY_FACTUAL, "sample": merged_sample},
             "note": "Join of the NCWRC site record with the USGS enrichment "
                     "block. Mixed by construction: everything under `usgs` is "
-                    "federal, everything else is NCWRC."}
+                    "federal, everything else is NCWRC. Holds no content that "
+                    "is not in the two artifacts it is derived from."}
     return arts
 
 
@@ -255,8 +269,8 @@ def main():
         json.dump(out_save, f, indent=2)
 
     # merged enriched locations (only when full run)
+    merged = []
     if not (a.limit or a.waterbody):
-        merged = []
         for s in json.load(open(SRC)):
             m = dict(s)
             m["usgs"] = out.get(s["locationID"], {})
@@ -266,8 +280,12 @@ def main():
             json.dump(merged, f, indent=2)
 
     ok = sum(1 for r in out.values() if r.get("stream_order"))
+    # Hand the real records to the manifest so it can check that every field
+    # written this run actually resolves to a tier.
     _common.record_artifacts(
-        BASE, "enrich_usgs.py", artifact_tiers(not (a.limit or a.waterbody)),
+        BASE, "enrich_usgs.py",
+        artifact_tiers(not (a.limit or a.waterbody),
+                       sample=list(out.values()), merged_sample=merged or None),
         run={"sites_enriched": len(out), "with_nhd_reach": ok,
              "subset": bool(a.limit or a.waterbody),
              "sources": ["USGS 3DEP EPQS", "USGS NHDPlus HR", "USGS NWIS"]})

@@ -121,6 +121,16 @@ class TestArtifactTiers(unittest.TestCase):
                          [_common.AGENCY_FACTUAL])
         self.assertFalse(entries["species/all-species.json"]["mixed"])
 
+    def test_the_pdfs_are_the_only_thing_a_media_free_bundle_loses(self):
+        """The index survives the media drop, so linked_reports still resolves."""
+        import _common
+        entries = _common.build_entries("species_extract.py", se.artifact_tiers())
+        self.assertEqual(entries["species/reports/"]["role"], _common.MEDIA)
+        self.assertEqual(entries["species/reports/index.json"]["role"],
+                         _common.QUERY)
+        self.assertEqual(entries["species/profiles/"]["derived_from"],
+                         ["species/all-species.json"])
+
 
 if __name__ == "__main__":
     unittest.main()

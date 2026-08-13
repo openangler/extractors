@@ -23,7 +23,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import _common
-from _common import AGENCY_FACTUAL, AGENCY_MEDIA
+from _common import AGENCY_FACTUAL, AGENCY_MEDIA, ARCHIVE, GEOMETRY, MEDIA, QUERY
 
 BASE = "https://www.ncpaws.org/NCWRCMaps/FishingAreas/Home"
 AGOL = "https://services1.arcgis.com/YfqBAUM5nWR3yhGP/arcgis/rest/services"
@@ -93,32 +93,43 @@ def clean_dms(s):
 
 
 def artifact_tiers(counts, layers, dl_photos):
-    """Provenance/licence tier for every artifact this script writes."""
+    """Provenance tier and role for every artifact this script writes."""
     facts = "NCWRC fishing-area facts (coordinates, amenities, species, management)."
+    all_locations = "fishing-areas/all-locations.json"
     arts = {
         "raw/all-fishing-areas.json": {
-            "tiers": [AGENCY_FACTUAL],
-            "note": "Untouched NCWRC master marker list."},
-        "fishing-areas/all-locations.json": {
-            "tiers": [AGENCY_FACTUAL],
+            "tiers": [AGENCY_FACTUAL], "role": ARCHIVE,
+            "note": "Untouched NCWRC master marker list, kept so a run can be "
+                    "audited against its source. Everything in it is also in "
+                    + all_locations + "."},
+        all_locations: {
+            "tiers": [AGENCY_FACTUAL], "role": QUERY,
             "note": facts + " locationPhotoID references an agency-media photo "
                     "but the file contains no media."},
     }
     for region in sorted(counts):
         d = REGION_DIR[region]
+        # Regional splits and the CSV are convenience views of all-locations.json:
+        # no content of their own, so a minimal bundle can leave them out.
         arts[f"fishing-areas/{d}/locations.json"] = {
-            "tiers": [AGENCY_FACTUAL], "note": facts}
+            "tiers": [AGENCY_FACTUAL], "role": ARCHIVE,
+            "derived_from": [all_locations],
+            "note": facts + f" The {region} partition of " + all_locations + "."}
         arts[f"fishing-areas/{d}/locations.csv"] = {
-            "tiers": [AGENCY_FACTUAL], "note": facts + " Flat one-row-per-site view."}
+            "tiers": [AGENCY_FACTUAL], "role": ARCHIVE,
+            "derived_from": [all_locations],
+            "note": facts + " Flat one-row-per-site view."}
         if dl_photos:
             arts[f"fishing-areas/{d}/photos/"] = {
-                "tiers": [AGENCY_MEDIA],
+                "tiers": [AGENCY_MEDIA], "role": MEDIA,
                 "note": "NCWRC site photographs — creative works, not facts. "
                         "Drop this tier for a redistributable or offline subset."}
     for relpath in layers:
         arts[relpath] = {
-            "tiers": [AGENCY_FACTUAL],
-            "note": "NCWRC ArcGIS map layer: public geometry and attributes."}
+            "tiers": [AGENCY_FACTUAL], "role": GEOMETRY,
+            "note": "NCWRC ArcGIS map layer: public geometry and attributes. "
+                    "Factual, and still the bulk of a media-free dataset — "
+                    "needed to draw a map, not to answer a query."}
     return arts
 
 
