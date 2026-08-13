@@ -23,6 +23,8 @@ self-contained pipeline:
 extractors/
 ├── nc/            North Carolina pipeline (5 scripts) — see nc/README.md
 │   └── _common.py   shared: --out/$OPENANGLER_OUT resolution + tier manifest
+├── tools/         dataset-level, state-independent
+│   └── plan_bundle.py   consumer-side tier/role filter, driven by manifest.json
 ├── tests/         stdlib unittest for the pure logic; never touches the network
 ├── requirements.txt
 ├── LICENSE        MIT
@@ -32,6 +34,9 @@ extractors/
 
 Future states get sibling directories (`sc/`, `va/`, `ga/`, …). Keep each
 state's code inside its own directory; do not cross-import between states.
+The manifest contract lives in `nc/_common.py` for now and `tools/` imports it
+from there — when a second state lands, that module graduates to a shared one
+rather than being copied.
 
 ## The NC pipeline (`nc/`)
 
@@ -89,16 +94,43 @@ that default — the default is what stops existing runs breaking. Do not add
 any other real local path, and do not add references to external, private, or
 proprietary projects.
 
-### Provenance tiers
+### Provenance tiers and roles
 
-Each script declares the provenance/licence tier of everything it writes
-(`artifact_tiers()` in each script) and merges it into the dataset's
-`manifest.json` via `_common.record_artifacts()`. Tiers: `federal-public-domain`,
-`agency-factual`, `agency-media`, `curated-original`, `personal`. An artifact
-that merges tiers must set `mixed` with a per-field `tier_detail` — the helper
-refuses to record a multi-tier artifact without one, because a wrong tag is
-worse than no tag. If you add an output, tag it. Engineering documentation, not
-legal advice.
+Each script declares, in its `artifact_tiers()`, the provenance tier **and** the
+role of everything it writes; `_common.record_artifacts()` merges that into the
+dataset's `manifest.json` and measures each artifact's size.
+
+- **Tiers** — `federal-public-domain`, `agency-factual`, `agency-media`,
+  `curated-original`, `personal`. Where the content came from.
+- **Roles** — `query`, `geometry`, `media`, `archive`. What it is for. Required
+  on every artifact. Size and purpose are a *different axis* from provenance:
+  100 MB of GeoJSON and 1 MB of app-critical JSON are both `agency-factual`, so
+  a tier filter alone cannot produce an offline bundle.
+- **`derived_from`** — set it when an artifact is a redundant view of others
+  (regional splits, the enriched join, per-species files).
+
+**Mixed artifacts are tagged per field, never split.** These files are read
+directly by applications at fixed paths, so splitting them per tier would break
+consumers. An artifact spanning more than one tier must carry a `fields` block:
+
+```python
+"fields": {"records": "list",          # or "map" / "object"
+           "rules": {"usgs": FEDERAL,  # covers everything beneath it
+                     "usgs.locationID": AGENCY_FACTUAL},   # longest match wins
+           "default": AGENCY_FACTUAL,  # optional; conservative direction only
+           "sample": records}          # real records from this run
+```
+
+`build_entries()` refuses a multi-tier artifact with no `fields` block, a tier
+declared that no field carries, a field tier outside the declared list, or a
+malformed selector — a wrong tag is worse than no tag. Pass `sample` and the
+manifest records `coverage: "complete"`, or names the untagged fields and warns.
+**If you add a field to a mixed artifact, add a rule for it**; the coverage
+check will tell you if you forget.
+
+Verify the round trip with `tools/plan_bundle.py`, which filters using only the
+manifest. If a consumer would still need to know that `usgs.*` is federal, the
+tagging is not finished. Engineering documentation, not legal advice.
 
 ## Conventions
 

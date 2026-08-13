@@ -14,10 +14,12 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NC = os.path.join(ROOT, "nc")
+TOOLS = os.path.join(ROOT, "tools")
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 
-if NC not in sys.path:
-    sys.path.insert(0, NC)
+for _d in (NC, TOOLS):
+    if _d not in sys.path:
+        sys.path.insert(0, _d)
 
 
 class _NoNetwork(socket.socket):

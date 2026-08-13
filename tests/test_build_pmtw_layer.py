@@ -83,22 +83,54 @@ class TestReachRecord(unittest.TestCase):
 
 
 class TestArtifactTiers(unittest.TestCase):
+    def _reaches(self):
+        """Real reach records, straight out of reach_record on the fixture."""
+        return [r for r in (pmtw.reach_record(f, []) for f in FEATURES) if r]
+
     def test_regulation_summary_is_curated_not_agency_text(self):
         import _common
         entries = _common.build_entries("build_pmtw_layer.py",
                                         pmtw.artifact_tiers(True))
         reaches = entries["trout-waters/pmtw-reaches.json"]
         self.assertTrue(reaches["mixed"])
-        self.assertEqual(reaches["tier_detail"]["regulation_summary"],
+        fields = reaches["fields"]
+        self.assertEqual(_common.field_tier(fields, "regulation_summary"),
                          _common.CURATED)
-        self.assertEqual(reaches["tier_detail"]["wrc_class"], _common.AGENCY_FACTUAL)
-        self.assertEqual(reaches["tier_detail"]["elevation_m"], _common.FEDERAL)
+        self.assertEqual(_common.field_tier(fields, "wrc_class"),
+                         _common.AGENCY_FACTUAL)
+        self.assertEqual(_common.field_tier(fields, "elevation_m"),
+                         _common.FEDERAL)
+        # midpoint is one rule covering both coordinates
+        self.assertEqual(_common.field_tier(fields, "midpoint.lat"),
+                         _common.AGENCY_FACTUAL)
 
-    def test_no_federal_tier_claimed_when_elevation_is_skipped(self):
-        tiers = pmtw.artifact_tiers(False)["trout-waters/pmtw-reaches.json"]
+    def test_every_field_a_real_reach_carries_has_a_tier(self):
         import _common
-        self.assertNotIn(_common.FEDERAL, tiers["tiers"])
-        self.assertNotIn("elevation_m", tiers["tier_detail"])
+        entries = _common.build_entries(
+            "build_pmtw_layer.py",
+            pmtw.artifact_tiers(True, sample=self._reaches()))
+        fields = entries["trout-waters/pmtw-reaches.json"]["fields"]
+        self.assertEqual(fields["coverage"], "complete")
+        self.assertEqual(fields["records"], "list")
+
+    def test_skipping_elevation_still_leaves_the_slot_tagged(self):
+        """--no-elevation writes elevation_m: null, so the field still needs a rule."""
+        import _common
+        entries = _common.build_entries(
+            "build_pmtw_layer.py",
+            pmtw.artifact_tiers(False, sample=self._reaches()))
+        e = entries["trout-waters/pmtw-reaches.json"]
+        self.assertEqual(e["fields"]["coverage"], "complete")
+        self.assertIn("Elevation skipped", e["note"])
+
+    def test_the_summary_points_back_at_the_layer_it_counts(self):
+        import _common
+        entries = _common.build_entries("build_pmtw_layer.py",
+                                        pmtw.artifact_tiers(True))
+        summary = entries["trout-waters/pmtw-summary.json"]
+        self.assertFalse(summary["mixed"])
+        self.assertEqual(summary["derived_from"],
+                         ["trout-waters/pmtw-reaches.json"])
 
 
 if __name__ == "__main__":

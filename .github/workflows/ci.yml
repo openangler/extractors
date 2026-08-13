@@ -13,7 +13,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       # Byte-compile only. The extractors hit live public APIs, so we do NOT
       # run them in CI.
-      - run: python -m py_compile nc/*.py
+      - run: python -m py_compile nc/*.py tools/*.py
 
   test:
     runs-on: ubuntu-latest

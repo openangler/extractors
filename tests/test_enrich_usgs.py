@@ -122,15 +122,74 @@ class TestHaversine(unittest.TestCase):
 
 
 class TestArtifactTiers(unittest.TestCase):
+    """The mixed artifacts of issue #3: tagged per field, not split."""
+
+    RECORDS = list(context.fixture("enrichment_sample.json").values())
+    SITES = context.fixture("sites_sample.json")
+
+    def _merged(self):
+        """What main() writes: the NCWRC record with the USGS block hung off it."""
+        by_id = {r["locationID"]: r for r in self.RECORDS}
+        return [dict(s, usgs=by_id.get(s["locationID"], {})) for s in self.SITES]
+
+    def _entries(self, full_run=True):
+        import _common
+        return _common.build_entries("enrich_usgs.py", eu.artifact_tiers(
+            full_run, sample=self.RECORDS, merged_sample=self._merged()))
+
     def test_enrichment_is_declared_mixed_and_validates(self):
         import _common
-        entries = _common.build_entries("enrich_usgs.py", eu.artifact_tiers(True))
-        enr = entries["fishing-areas/enrichment.json"]
+        enr = self._entries()["fishing-areas/enrichment.json"]
         self.assertTrue(enr["mixed"])
-        self.assertEqual(enr["tier_detail"]["stream_order"], _common.FEDERAL)
-        self.assertEqual(enr["tier_detail"]["locationName"], _common.AGENCY_FACTUAL)
+        self.assertEqual(enr["fields"]["records"], "map")
+        self.assertEqual(_common.field_tier(enr["fields"], "stream_order"),
+                         _common.FEDERAL)
+        self.assertEqual(_common.field_tier(enr["fields"], "locationName"),
+                         _common.AGENCY_FACTUAL)
+        # one rule, whole gage block
+        self.assertEqual(_common.field_tier(enr["fields"], "nearest_gage.url"),
+                         _common.FEDERAL)
+
+    def test_every_field_a_real_enrichment_record_carries_has_a_tier(self):
+        enr = self._entries()["fishing-areas/enrichment.json"]
+        self.assertEqual(enr["fields"]["coverage"], "complete")
+
+    def test_identity_fields_stay_ncwrc_even_inside_the_federal_block(self):
+        """Longest-match precedence is what makes the merged file filterable."""
+        import _common
+        merged = self._entries()["fishing-areas/all-locations-enriched.json"]
+        fields = merged["fields"]
+        self.assertEqual(fields["records"], "list")
+        self.assertEqual(_common.field_tier(fields, "usgs.stream_order"),
+                         _common.FEDERAL)
+        self.assertEqual(_common.field_tier(fields, "usgs.locationID"),
+                         _common.AGENCY_FACTUAL)
+        self.assertEqual(_common.field_tier(fields, "county"),
+                         _common.AGENCY_FACTUAL)
+        self.assertEqual(fields["coverage"], "complete")
+
+    def test_an_unrecognised_field_defaults_to_ncwrc_not_to_federal(self):
+        """Defaults only ever point the conservative way."""
+        import _common
+        entries = self._entries()
+        self.assertEqual(
+            entries["fishing-areas/all-locations-enriched.json"]
+            ["fields"]["default"], _common.AGENCY_FACTUAL)
+        # the enrichment file has no default at all: an untagged field there
+        # would be reported, never silently called federal
+        self.assertNotIn("default",
+                         entries["fishing-areas/enrichment.json"]["fields"])
+
+    def test_the_merged_file_is_an_archive_view_of_two_others(self):
+        import _common
+        entries = self._entries()
         merged = entries["fishing-areas/all-locations-enriched.json"]
-        self.assertEqual(merged["tier_detail"]["usgs"], _common.FEDERAL)
+        self.assertEqual(merged["role"], _common.ARCHIVE)
+        self.assertEqual(merged["derived_from"],
+                         ["fishing-areas/all-locations.json",
+                          "fishing-areas/enrichment.json"])
+        self.assertEqual(entries["fishing-areas/enrichment.json"]["role"],
+                         _common.QUERY)
 
     def test_subset_run_does_not_claim_the_merged_file(self):
         self.assertNotIn("fishing-areas/all-locations-enriched.json",

@@ -23,7 +23,7 @@ import os
 import statistics as st
 
 import _common
-from _common import AGENCY_FACTUAL, CURATED, FEDERAL
+from _common import AGENCY_FACTUAL, ARCHIVE, CURATED, FEDERAL, QUERY
 from species_extract import canonical_slug    # one definition of the slug rule
 
 
@@ -68,36 +68,51 @@ def profile_index(profiles):
     return idx
 
 
-def artifact_tiers():
-    """Provenance/licence tier for every artifact this script writes."""
-    detail = {
+def artifact_tiers(sample=None):
+    """Provenance tier and role for every artifact this script writes."""
+    rules = {
+        # hand-authored in species-knowledge/curated/
         "match": CURATED, "target_size": CURATED, "baits_ranked": CURATED,
         "bait_note": CURATED, "habitat_scoring": CURATED, "rigs": CURATED,
-        "seasonal": CURATED,
+        "seasonal": CURATED, "curated_source_file": CURATED,
+        # computed here from USGS reach attributes
         "habitat_envelope": FEDERAL,
+        # ... except the sentence describing the method, which is written here
+        "habitat_envelope.derived_from": CURATED,
+        # copied from the NCWRC species profile
         "ncwrc_fishing_tips": AGENCY_FACTUAL,
         "ncwrc_places_to_fish": AGENCY_FACTUAL,
         "ncwrc_regulations": AGENCY_FACTUAL,
         "ncwrc_url": AGENCY_FACTUAL,
         "name": AGENCY_FACTUAL,
+        "slug": AGENCY_FACTUAL,
+        "aliases": AGENCY_FACTUAL,
         "linked_reports": AGENCY_FACTUAL,
     }
     note = ("Merged per-species knowledge: curated content, NCWRC profile facts, "
             "and a habitat envelope computed from USGS reach attributes. Mixed "
-            "at field level — see tier_detail; the envelope method itself is "
-            "curated, its inputs are federal. linked_reports names "
-            "agency-media PDFs but embeds none.")
+            "at field level — see fields.rules; the envelope numbers are "
+            "federal, the sentence describing how they were derived is not. "
+            "linked_reports names agency-media PDFs but embeds none.")
+    combined = "species-knowledge/all-species-knowledge.json"
     return {
         "species-knowledge/curated/": {
-            "tiers": [CURATED],
+            "tiers": [CURATED], "role": ARCHIVE,
             "note": "Hand-authored input, not generated: bait rankings, rigs, "
-                    "seasonal patterns, habitat scoring weights."},
-        "species-knowledge/all-species-knowledge.json": {
-            "tiers": [CURATED, AGENCY_FACTUAL, FEDERAL],
-            "tier_detail": detail, "note": note},
+                    "seasonal patterns, habitat scoring weights. Read at build "
+                    "time; nothing downstream opens it."},
+        combined: {
+            "tiers": [CURATED, AGENCY_FACTUAL, FEDERAL], "role": QUERY,
+            "fields": {"records": "map", "rules": rules, "sample": sample},
+            "note": note},
         "species-knowledge/kb/": {
-            "tiers": [CURATED, AGENCY_FACTUAL, FEDERAL],
-            "tier_detail": detail, "note": note},
+            "tiers": [CURATED, AGENCY_FACTUAL, FEDERAL], "role": QUERY,
+            "derived_from": [combined],
+            # one file per species, each file a single record
+            "fields": {"records": "object", "rules": rules, "sample": sample},
+            "note": note + " One file per species — the same records as "
+                           "all-species-knowledge.json, split for direct "
+                           "lookup, and read that way by consumers."},
     }
 
 
@@ -182,7 +197,10 @@ def main():
     with open(os.path.join(OUT, "all-species-knowledge.json"), "w") as f:
         json.dump(kb, f, indent=2)
 
-    _common.record_artifacts(BASE, "build_species_kb.py", artifact_tiers(),
+    # the real records go to the manifest, which checks that every field
+    # written this run resolves to a provenance tier
+    _common.record_artifacts(BASE, "build_species_kb.py",
+                             artifact_tiers(sample=list(kb.values())),
                              run={"species": len(kb),
                                   "canonicalised_slugs": renamed})
 
