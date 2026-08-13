@@ -1,0 +1,266 @@
+[
+  {
+    "locationID": 1549,
+    "locationName": "ALLEN",
+    "speciesInfo": [
+      {
+        "commonName": "Crappie (Unspecified)",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "North American Freshwater Catfishes",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Striped Bass",
+        "stocked": true,
+        "wild": false
+      },
+      {
+        "commonName": "Sunfish",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "White Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "White Perch",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 1550,
+    "locationName": "AMBOY RIVERFRONT PARK",
+    "speciesInfo": [
+      {
+        "commonName": "Muskellunge",
+        "stocked": true,
+        "wild": false
+      },
+      {
+        "commonName": "North American Freshwater Catfishes",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Redbreast Sunfish",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Smallmouth Bass",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 1551,
+    "locationName": "ANDERSON COMMUNITY PARK",
+    "speciesInfo": [
+      {
+        "commonName": "Channel Catfish",
+        "stocked": true,
+        "wild": false
+      },
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Sunfish",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 2375,
+    "locationName": "ANDERSON POINT PARK",
+    "speciesInfo": []
+  },
+  {
+    "locationID": 2109,
+    "locationName": "ANGLIN MILL BRIDGE",
+    "speciesInfo": [
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "North American Freshwater Catfishes",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Smallmouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Sunfish",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 1729,
+    "locationName": "APALACHIA",
+    "speciesInfo": [
+      {
+        "commonName": "Crappie (Unspecified)",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Smallmouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Spotted Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Walleye",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 1932,
+    "locationName": "ARROWHEAD LAKE",
+    "speciesInfo": [
+      {
+        "commonName": "Crappie (Unspecified)",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "North American Freshwater Catfishes",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Sunfish",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 1554,
+    "locationName": "ASHE PARK POND",
+    "speciesInfo": [
+      {
+        "commonName": "Bluegill",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Brook Trout",
+        "stocked": true,
+        "wild": false
+      },
+      {
+        "commonName": "Brown Trout",
+        "stocked": true,
+        "wild": false
+      },
+      {
+        "commonName": "Channel Catfish",
+        "stocked": true,
+        "wild": false
+      },
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Rainbow Trout",
+        "stocked": true,
+        "wild": false
+      }
+    ]
+  },
+  {
+    "locationID": 1757,
+    "locationName": "AVALON BEACH",
+    "speciesInfo": [
+      {
+        "commonName": "Largemouth Bass",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Red Drum",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Southern Flounder",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Spotted Seatrout",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Striped Bass",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  },
+  {
+    "locationID": 2269,
+    "locationName": "AVALON PIER",
+    "speciesInfo": [
+      {
+        "commonName": "Red Drum",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Southern Flounder",
+        "stocked": false,
+        "wild": true
+      },
+      {
+        "commonName": "Spotted Seatrout",
+        "stocked": false,
+        "wild": true
+      }
+    ]
+  }
+]

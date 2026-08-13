@@ -12,22 +12,22 @@ region (Mountains / Piedmont / Coastal Plain) for a local NC-fishing AI agent.
 All endpoints are public. No auth required.
 """
 
+import argparse
 import csv
-import io
 import json
 import os
 import re
-import sys
 import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-OUT = os.path.expanduser("~/onedrive/fishing/nc-fishing-guide-data")
+import _common
+from _common import AGENCY_FACTUAL, AGENCY_MEDIA
+
 BASE = "https://www.ncpaws.org/NCWRCMaps/FishingAreas/Home"
 AGOL = "https://services1.arcgis.com/YfqBAUM5nWR3yhGP/arcgis/rest/services"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) fishing-data-extract/1.0"
-DL_PHOTOS = "--no-photos" not in sys.argv
 
 # ---- NC county -> region (all 100 counties) -----------------------------------
 MOUNTAINS = {
@@ -92,7 +92,46 @@ def clean_dms(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+def artifact_tiers(counts, layers, dl_photos):
+    """Provenance/licence tier for every artifact this script writes."""
+    facts = "NCWRC fishing-area facts (coordinates, amenities, species, management)."
+    arts = {
+        "raw/all-fishing-areas.json": {
+            "tiers": [AGENCY_FACTUAL],
+            "note": "Untouched NCWRC master marker list."},
+        "fishing-areas/all-locations.json": {
+            "tiers": [AGENCY_FACTUAL],
+            "note": facts + " locationPhotoID references an agency-media photo "
+                    "but the file contains no media."},
+    }
+    for region in sorted(counts):
+        d = REGION_DIR[region]
+        arts[f"fishing-areas/{d}/locations.json"] = {
+            "tiers": [AGENCY_FACTUAL], "note": facts}
+        arts[f"fishing-areas/{d}/locations.csv"] = {
+            "tiers": [AGENCY_FACTUAL], "note": facts + " Flat one-row-per-site view."}
+        if dl_photos:
+            arts[f"fishing-areas/{d}/photos/"] = {
+                "tiers": [AGENCY_MEDIA],
+                "note": "NCWRC site photographs — creative works, not facts. "
+                        "Drop this tier for a redistributable or offline subset."}
+    for relpath in layers:
+        arts[relpath] = {
+            "tiers": [AGENCY_FACTUAL],
+            "note": "NCWRC ArcGIS map layer: public geometry and attributes."}
+    return arts
+
+
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.strip().split("\n\n")[0])
+    _common.add_out_arg(ap)
+    ap.add_argument("--no-photos", action="store_true",
+                    help="skip downloading site photos (the agency-media tier)")
+    args = ap.parse_args()
+    OUT = _common.resolve_out(args.out)
+    DL_PHOTOS = not args.no_photos
+    print(f"Output -> {OUT}", flush=True)
+
     os.makedirs(OUT, exist_ok=True)
     raw_dir = os.path.join(OUT, "raw")
     os.makedirs(raw_dir, exist_ok=True)
@@ -254,8 +293,8 @@ def main():
             json.dump(out, f)
         print(f"      {relpath}: {len(feats)} features", flush=True)
 
-    # summary manifest
-    manifest = {
+    # summary + provenance manifest
+    run = {
         "source": "https://www.ncpaws.org/ncwrcmaps/fishingareas",
         "total_fishing_areas": len(master),
         "detail_errors": len(errors),
@@ -263,9 +302,9 @@ def main():
         "photos_downloaded": DL_PHOTOS,
         "map_layers": list(layers.keys()),
     }
-    with open(os.path.join(OUT, "manifest.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
-    print("\nDONE. Summary:", json.dumps(manifest, indent=2), flush=True)
+    _common.record_artifacts(OUT, "extract_nc_fishing.py",
+                             artifact_tiers(counts, layers, DL_PHOTOS), run=run)
+    print("\nDONE. Summary:", json.dumps(run, indent=2), flush=True)
 
 
 if __name__ == "__main__":

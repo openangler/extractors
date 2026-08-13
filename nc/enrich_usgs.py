@@ -14,11 +14,12 @@ This is what turns "catfish are reported downstream" into quantified reach
 attributes (lower slope + higher order + bigger drainage = the warm, deep,
 slow water catfish/musky favor; steep low-order reaches = trout).
 
-Output -> nc-fishing-guide-data/fishing-areas/enrichment.json  (keyed by locationID)
+Output -> <out>/fishing-areas/enrichment.json  (keyed by locationID)
        -> merged all-locations-enriched.json
 
     python3 enrich_usgs.py           # all sites
     python3 enrich_usgs.py --limit 25 --waterbody "FRENCH BROAD"   # test subset
+    python3 enrich_usgs.py --out /data/nc-fishing-guide-data
 """
 
 import argparse
@@ -30,8 +31,9 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-BASE = os.path.expanduser("~/onedrive/fishing/nc-fishing-guide-data")
-SRC = os.path.join(BASE, "fishing-areas", "all-locations.json")
+import _common
+from _common import AGENCY_FACTUAL, FEDERAL
+
 EPQS = "https://epqs.nationalmap.gov/v1/json"
 NHD = "https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/3/query"
 NWIS = "https://waterservices.usgs.gov/nwis/site/"
@@ -73,52 +75,136 @@ def load_gages():
     return gages
 
 
+# NHDPlus HR value-added attributes carry no-data sentinels rather than nulls:
+# -9 on streamorde, -9998/-9999 on slope / totdasqkm / qama. They look like data
+# (a -9 stream order sorts below a headwater stream), so normalise them here —
+# at extraction, once — instead of leaving every consumer to recognise them.
+NHD_NODATA = (-9.0, -9998.0, -9999.0)
+
+
+def nhd_number(raw, allow_negative=False):
+    """NHDPlus VAA value -> float, or None if it is a no-data sentinel.
+
+    Stream order, slope, drainage area and mean-annual flow are all
+    non-negative quantities, so any negative is treated as no-data too — that
+    catches sentinel codes NHDPlus adds later without a code change.
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if v in NHD_NODATA or (not allow_negative and v < 0):
+        return None
+    return v
+
+
+def epqs_url(lat, lon):
+    return f"{EPQS}?" + urllib.parse.urlencode(
+        {"x": lon, "y": lat, "units": "Meters", "wkid": 4326})
+
+
+def parse_elevation(payload):
+    """EPQS response -> metres. Its own no-data value is -1000000."""
+    try:
+        v = float(json.loads(payload)["value"])
+    except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+        return None
+    return round(v, 1) if v > -1000 else None
+
+
 def elevation(lat, lon):
     try:
-        d = json.loads(get(f"{EPQS}?" + urllib.parse.urlencode(
-            {"x": lon, "y": lat, "units": "Meters", "wkid": 4326})))
-        v = float(d["value"])
-        return round(v, 1) if v > -1000 else None
+        return parse_elevation(get(epqs_url(lat, lon)))
     except Exception:
         return None
 
 
-def nhd_reach(lat, lon, waterbody):
-    """Nearest NHDPlus flowline; prefer a name match, else largest drainage."""
+def nhd_url(lat, lon):
     q = urllib.parse.urlencode({
         "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
         "inSR": 4326, "spatialRel": "esriSpatialRelIntersects",
         "distance": 350, "units": "esriSRUnit_Meter",
         "outFields": "gnis_name,streamorde,slope,totdasqkm,lengthkm,qama",
         "returnGeometry": "false", "f": "json"})
-    try:
-        feats = json.loads(get(f"{NHD}?{q}")).get("features", [])
-    except Exception:
-        return {}
+    return f"{NHD}?{q}"
+
+
+def nhd_pick(feats, waterbody):
+    """Pick the reach for this site and normalise its attributes.
+
+    Prefers a flowline whose GNIS name matches the waterbody, else the one with
+    the largest drainage area.
+    """
     if not feats:
         return {}
     wb = (waterbody or "").upper().replace(" RIVER", "").replace(" CREEK", "").strip()
     named = [f for f in feats if wb and f["attributes"].get("gnis_name")
              and wb in f["attributes"]["gnis_name"].upper()]
     pool = named or feats
-    best = max(pool, key=lambda f: f["attributes"].get("totdasqkm") or 0)
+    best = max(pool, key=lambda f: nhd_number(f["attributes"].get("totdasqkm")) or 0)
     a = best["attributes"]
-    slope = a.get("slope")
+    order = nhd_number(a.get("streamorde"))
+    slope = nhd_number(a.get("slope"))
+    da = nhd_number(a.get("totdasqkm"))
+    qama = nhd_number(a.get("qama"))
     return {
         "nhd_name": a.get("gnis_name"),
-        "stream_order": a.get("streamorde"),
-        "slope": round(slope, 5) if slope not in (None, -9998, -9999) else None,
-        "drainage_area_sqkm": round(a["totdasqkm"], 1) if a.get("totdasqkm") else None,
-        "mean_annual_flow_cfs": round(a["qama"], 1) if a.get("qama") and a["qama"] > 0 else None,
+        "stream_order": int(order) if order is not None else None,
+        "slope": round(slope, 5) if slope is not None else None,
+        "drainage_area_sqkm": round(da, 1) if da is not None else None,
+        "mean_annual_flow_cfs": round(qama, 1) if qama is not None else None,
         "name_matched": bool(named),
     }
 
 
+def nhd_reach(lat, lon, waterbody):
+    """Nearest NHDPlus flowline; prefer a name match, else largest drainage."""
+    try:
+        feats = json.loads(get(nhd_url(lat, lon))).get("features", [])
+    except Exception:
+        return {}
+    return nhd_pick(feats, waterbody)
+
+
+def artifact_tiers(full_run):
+    """Provenance/licence tier for every artifact this script writes."""
+    usgs_fields = {f: FEDERAL for f in
+                   ("elevation_m", "stream_order", "slope", "drainage_area_sqkm",
+                    "mean_annual_flow_cfs", "nhd_name", "name_matched",
+                    "nearest_gage")}
+    arts = {
+        "fishing-areas/enrichment.json": {
+            "tiers": [FEDERAL, AGENCY_FACTUAL],
+            "tier_detail": dict(usgs_fields, locationID=AGENCY_FACTUAL,
+                                locationName=AGENCY_FACTUAL,
+                                waterbodyName=AGENCY_FACTUAL),
+            "note": "USGS 3DEP / NHDPlus HR / NWIS attributes, keyed by NCWRC "
+                    "locationID. The three identity fields are copied from "
+                    "NCWRC; every measured attribute is federal."},
+    }
+    if full_run:
+        arts["fishing-areas/all-locations-enriched.json"] = {
+            "tiers": [AGENCY_FACTUAL, FEDERAL],
+            "tier_detail": {"<NCWRC site record>": AGENCY_FACTUAL,
+                            "usgs": FEDERAL},
+            "note": "Join of the NCWRC site record with the USGS enrichment "
+                    "block. Mixed by construction: everything under `usgs` is "
+                    "federal, everything else is NCWRC."}
+    return arts
+
+
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=__doc__.strip().split("\n\n")[0])
+    _common.add_out_arg(ap)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--waterbody", help="only sites whose waterbody contains this")
     a = ap.parse_args()
+
+    BASE = _common.resolve_out(a.out)
+    SRC = os.path.join(BASE, "fishing-areas", "all-locations.json")
+    print(f"Dataset -> {BASE}", flush=True)
 
     sites = json.load(open(SRC))
     if a.waterbody:
@@ -180,6 +266,11 @@ def main():
             json.dump(merged, f, indent=2)
 
     ok = sum(1 for r in out.values() if r.get("stream_order"))
+    _common.record_artifacts(
+        BASE, "enrich_usgs.py", artifact_tiers(not (a.limit or a.waterbody)),
+        run={"sites_enriched": len(out), "with_nhd_reach": ok,
+             "subset": bool(a.limit or a.waterbody),
+             "sources": ["USGS 3DEP EPQS", "USGS NHDPlus HR", "USGS NWIS"]})
     print(f"Done. {ok}/{len(out)} got NHD reach attrs. -> {enr_path}", flush=True)
 
 

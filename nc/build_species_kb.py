@@ -12,16 +12,19 @@ USGS enrichment, merges with the NCWRC profile, and writes:
 This supersedes the catfish-only build_catfish_kb.py: catfish now lives in
 curated/catfish.json like every other species. Re-run after any agent adds a
 curated file.
+
+    python3 build_species_kb.py --out /data/nc-fishing-guide-data
 """
 
+import argparse
 import glob
 import json
 import os
 import statistics as st
 
-BASE = os.path.expanduser("~/onedrive/fishing/nc-fishing-guide-data")
-CUR = os.path.join(BASE, "species-knowledge", "curated")
-OUT = os.path.join(BASE, "species-knowledge")
+import _common
+from _common import AGENCY_FACTUAL, CURATED, FEDERAL
+from species_extract import canonical_slug    # one definition of the slug rule
 
 
 def envelope(sites, enr, match):
@@ -48,12 +51,71 @@ def envelope(sites, enr, match):
     }
 
 
+def profile_index(profiles):
+    """slug -> profile, resolvable by the canonical slug or any recorded alias.
+
+    species_extract.py canonicalises NCWRC's URL de-dup suffix
+    ('largemouth-bass-0' -> 'largemouth-bass') and records the old value in
+    `aliases`. Indexing the real slug, its aliases and its canonical form means
+    a curated file keyed on either spelling joins, in either direction, even
+    against a dataset whose profiles predate the canonicalisation. A real slug
+    always wins over an alias.
+    """
+    idx = {p["slug"]: p for p in profiles}
+    for p in profiles:
+        for alias in list(p.get("aliases", [])) + [canonical_slug(p["slug"])]:
+            idx.setdefault(alias, p)
+    return idx
+
+
+def artifact_tiers():
+    """Provenance/licence tier for every artifact this script writes."""
+    detail = {
+        "match": CURATED, "target_size": CURATED, "baits_ranked": CURATED,
+        "bait_note": CURATED, "habitat_scoring": CURATED, "rigs": CURATED,
+        "seasonal": CURATED,
+        "habitat_envelope": FEDERAL,
+        "ncwrc_fishing_tips": AGENCY_FACTUAL,
+        "ncwrc_places_to_fish": AGENCY_FACTUAL,
+        "ncwrc_regulations": AGENCY_FACTUAL,
+        "ncwrc_url": AGENCY_FACTUAL,
+        "name": AGENCY_FACTUAL,
+        "linked_reports": AGENCY_FACTUAL,
+    }
+    note = ("Merged per-species knowledge: curated content, NCWRC profile facts, "
+            "and a habitat envelope computed from USGS reach attributes. Mixed "
+            "at field level — see tier_detail; the envelope method itself is "
+            "curated, its inputs are federal. linked_reports names "
+            "agency-media PDFs but embeds none.")
+    return {
+        "species-knowledge/curated/": {
+            "tiers": [CURATED],
+            "note": "Hand-authored input, not generated: bait rankings, rigs, "
+                    "seasonal patterns, habitat scoring weights."},
+        "species-knowledge/all-species-knowledge.json": {
+            "tiers": [CURATED, AGENCY_FACTUAL, FEDERAL],
+            "tier_detail": detail, "note": note},
+        "species-knowledge/kb/": {
+            "tiers": [CURATED, AGENCY_FACTUAL, FEDERAL],
+            "tier_detail": detail, "note": note},
+    }
+
+
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.strip().split("\n\n")[0])
+    _common.add_out_arg(ap)
+    a = ap.parse_args()
+
+    BASE = _common.resolve_out(a.out)
+    CUR = os.path.join(BASE, "species-knowledge", "curated")
+    OUT = os.path.join(BASE, "species-knowledge")
+    print(f"Dataset -> {BASE}", flush=True)
+
     os.makedirs(os.path.join(OUT, "kb"), exist_ok=True)
     sites = json.load(open(os.path.join(BASE, "fishing-areas", "all-locations.json")))
     enr = json.load(open(os.path.join(BASE, "fishing-areas", "enrichment.json")))
-    profiles = {p["slug"]: p for p in
-                json.load(open(os.path.join(BASE, "species", "all-species.json")))}
+    profiles = profile_index(
+        json.load(open(os.path.join(BASE, "species", "all-species.json"))))
     report_index = json.load(open(os.path.join(
         BASE, "species", "reports", "index.json")))
 
@@ -71,12 +133,19 @@ def main():
             curated[slug] = (entry, os.path.basename(path))
 
     kb = {}
+    renamed = {}
     for slug, (cur, srcfile) in sorted(curated.items()):
         prof = profiles.get(slug, {})
+        # a curated key may still carry NCWRC's URL de-dup suffix; the KB is the
+        # public face of a species, so publish the canonical slug and keep the
+        # curated key as an alias.
+        canon = canonical_slug(slug, (set(curated) - {slug}) | set(kb))
+        if canon != slug:
+            renamed[slug] = canon
         n, env = envelope(sites, enr, cur["match"])
-        kb[slug] = {
-            "slug": slug,
-            "name": prof.get("name", slug.replace("-", " ").title()),
+        kb[canon] = {
+            "slug": canon,
+            "name": prof.get("name", canon.replace("-", " ").title()),
             "match": cur["match"],
             "curated_source_file": srcfile,
             "ncwrc_url": prof.get("url"),
@@ -99,12 +168,27 @@ def main():
                 for m in prof.get("media_ids", [])
             ],
         }
-        with open(os.path.join(OUT, "kb", f"{slug}.json"), "w") as f:
-            json.dump(kb[slug], f, indent=2)
+        aliases = sorted({s for s in (slug, prof.get("source_slug")) if s and s != canon})
+        if aliases:
+            kb[canon]["aliases"] = aliases
+        with open(os.path.join(OUT, "kb", f"{canon}.json"), "w") as f:
+            json.dump(kb[canon], f, indent=2)
+
+    keep = {f"{s}.json" for s in kb}
+    for f in os.listdir(os.path.join(OUT, "kb")):        # drop stale files
+        if f.endswith(".json") and f not in keep:
+            os.remove(os.path.join(OUT, "kb", f))
 
     with open(os.path.join(OUT, "all-species-knowledge.json"), "w") as f:
         json.dump(kb, f, indent=2)
 
+    _common.record_artifacts(BASE, "build_species_kb.py", artifact_tiers(),
+                             run={"species": len(kb),
+                                  "canonicalised_slugs": renamed})
+
+    if renamed:
+        print(f"Canonicalised {len(renamed)} curated slug(s): {renamed} "
+              f"(rename the curated key to make this a no-op)")
     print(f"Built KB for {len(kb)} species -> all-species-knowledge.json")
     for slug, v in kb.items():
         e = v["habitat_envelope"]

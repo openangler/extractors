@@ -1,0 +1,94 @@
+{
+  "_comment": [
+    "NHDPlus HR MapServer/3 query responses, in the documented ArcGIS shape",
+    "{features: [{attributes: {...}}]}. Attribute values are the ones observed",
+    "in the produced NC dataset (fishing-areas/enrichment.json), including the",
+    "no-data sentinels that leaked through as real values: streamorde -9 and",
+    "totdasqkm -9999 on 29 coastal reaches. Captured as a fixture so the",
+    "parsing can be tested without touching the live USGS service."
+  ],
+  "coastal_sentinel": {
+    "comment": "locationID 1757 AVALON BEACH / KITTY HAWK BAY — all VAA no-data",
+    "features": [
+      {
+        "attributes": {
+          "gnis_name": null,
+          "streamorde": -9,
+          "slope": -9998,
+          "totdasqkm": -9999,
+          "lengthkm": 0.412,
+          "qama": 0.4
+        }
+      }
+    ]
+  },
+  "named_match": {
+    "comment": "locationID 1550 AMBOY RIVERFRONT PARK / FRENCH BROAD RIVER — the name match must win over the larger-drainage neighbour",
+    "features": [
+      {
+        "attributes": {
+          "gnis_name": "French Broad River",
+          "streamorde": 8,
+          "slope": 0.001274,
+          "totdasqkm": 2073.68,
+          "lengthkm": 1.884,
+          "qama": 2201.9
+        }
+      },
+      {
+        "attributes": {
+          "gnis_name": "Swannanoa River",
+          "streamorde": 6,
+          "slope": 0.00311,
+          "totdasqkm": 3500.4,
+          "lengthkm": 0.92,
+          "qama": 980.2
+        }
+      }
+    ]
+  },
+  "unnamed_largest": {
+    "comment": "no GNIS name matches the waterbody — fall back to the largest drainage area",
+    "features": [
+      {
+        "attributes": {
+          "gnis_name": null,
+          "streamorde": 1,
+          "slope": 0.03981,
+          "totdasqkm": 1.34,
+          "lengthkm": 0.31,
+          "qama": 0.6
+        }
+      },
+      {
+        "attributes": {
+          "gnis_name": "Ezra Fork",
+          "streamorde": 2,
+          "slope": 0.036442,
+          "totdasqkm": 1.52,
+          "lengthkm": 0.44,
+          "qama": 1.2
+        }
+      }
+    ]
+  },
+  "partial_sentinel": {
+    "comment": "a real reach whose slope alone is no-data (-9998) — order/drainage/flow stay",
+    "features": [
+      {
+        "attributes": {
+          "gnis_name": "Neuse River",
+          "streamorde": 7,
+          "slope": -9998,
+          "totdasqkm": 2274.91,
+          "lengthkm": 2.1,
+          "qama": 974.7
+        }
+      }
+    ]
+  },
+  "empty": {
+    "comment": "no flowline within the 350 m search radius",
+    "features": []
+  }
+}
