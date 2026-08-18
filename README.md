@@ -64,6 +64,8 @@ python3 nc/extract_nc_fishing.py       # 911 access points + photos + ArcGIS lay
 python3 nc/species_extract.py          # species profiles + research PDFs
 python3 nc/enrich_usgs.py              # add USGS hydrology to each access point
 python3 nc/build_pmtw_layer.py         # classify the 1,809 trout-water reaches
+                                       #   (+ a structured bait_rule per reach:
+                                       #    is natural bait legal here, and when?)
 python3 nc/build_species_kb.py         # per-species habitat knowledge base
 ```
 
@@ -133,7 +135,7 @@ a **~3.2 MB** offline bundle; add `geometry` back for offline maps and it is
 
 Several artifacts fuse sources in one file — `enrichment.json` (USGS attributes
 under NCWRC identity keys), `pmtw-reaches.json` (NCWRC reach facts, a curated
-regulation summary, USGS elevation), `all-species-knowledge.json` and `kb/`
+regulation summary and `bait_rule`, USGS elevation), `all-species-knowledge.json` and `kb/`
 (curated content, NCWRC profile text, a USGS-derived envelope). A file-level
 tier on those would be a lie by rounding.
 

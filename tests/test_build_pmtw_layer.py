@@ -128,9 +128,16 @@ class TestArtifactTiers(unittest.TestCase):
         entries = _common.build_entries("build_pmtw_layer.py",
                                         pmtw.artifact_tiers(True))
         summary = entries["trout-waters/pmtw-summary.json"]
-        self.assertFalse(summary["mixed"])
         self.assertEqual(summary["derived_from"],
                          ["trout-waters/pmtw-reaches.json"])
+        # counts of NCWRC classes are agency facts; counts of our reading of
+        # those classes into bait rules are not, so the file is mixed.
+        self.assertTrue(summary["mixed"])
+        fields = summary["fields"]
+        self.assertEqual(_common.field_tier(fields, "by_class"),
+                         _common.AGENCY_FACTUAL)
+        self.assertEqual(_common.field_tier(fields, "by_natural_bait"),
+                         _common.CURATED)
 
 
 if __name__ == "__main__":

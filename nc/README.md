@@ -89,18 +89,61 @@ Steps 1 and 2 are independent of each other. Steps 3–5 depend on step 1.
   (`epqs.nationalmap.gov`) for midpoint elevation.
 - **Does:** turns the 1,809 PMTW stream reaches into a classified/regulated reach
   layer — stream name, reach description, WRC classification with a plain-language
-  regulation summary, Mountain Heritage flag, length, a representative midpoint
-  coordinate, the county (point-in-polygon), and midpoint elevation. Pass
-  `--no-elevation` to skip the 1,809 EPQS calls.
+  regulation summary **and a structured `bait_rule`**, Mountain Heritage flag,
+  length, a representative midpoint coordinate, the county (point-in-polygon),
+  and midpoint elevation. Pass `--no-elevation` to skip the 1,809 EPQS calls.
 - **Output:** `trout-waters/pmtw-reaches.json` (the reach index) and
-  `trout-waters/pmtw-summary.json` (counts by class and county).
+  `trout-waters/pmtw-summary.json` (counts by class and county, plus counts by
+  bait state and any WRC class with no bait rule).
 - **Tiers:** `pmtw-reaches.json` is **mixed**, tagged per field — NCWRC reach
-  facts are `agency-factual`, the plain-language `regulation_summary` is
-  `curated-original` (it is written in this script, not by NCWRC), and
+  facts are `agency-factual`, the plain-language `regulation_summary` and the
+  `bait_rule` are `curated-original` (both are written in this script, not by
+  NCWRC; `bait_rule.source` is NCWRC's own URL and stays `agency-factual`), and
   `elevation_m` is `federal-public-domain`. `--no-elevation` leaves that field
   present and null, so it stays tagged.
 - **Roles:** both `query`; `pmtw-summary.json` is `derived_from`
   `pmtw-reaches.json`.
+
+#### `bait_rule` — "is the bait in my hand legal here?", structured
+
+`regulation_summary` is prose and has to be: it carries size and creel limits no
+enum holds. `bait_rule` is the one question an app must answer without parsing
+English, because being wrong means a citation. Per reach:
+
+| field | values |
+|---|---|
+| `natural_bait` | `allowed` / `prohibited` / `seasonal` (date-dependent, see `periods`) / `unknown` |
+| `natural_bait_possession` | `prohibited` / `not_restricted` / `unknown` — Wild Trout Waters (15A NCAC 10C .0205(b)(6)) and Delayed Harvest water in season ban *possessing* bait while fishing, not merely using it. Where the rule governs only use and is silent on possession (Catch and Release), this is `unknown`: silence is not permission |
+| `gear_restriction` | `any_bait_or_lure` / `single_hook_artificial_lures` (Wild Trout, Delayed Harvest in season) / `single_hook_artificial_flies_and_lures` (Catch and Release). Lures and flies-and-lures are different rules and are never collapsed |
+| `harvest` | `allowed` / `catch_and_release` / `unknown` |
+| `open_to` | `all_anglers` / `youth_only` / `closed` / `varies_by_time` / `unknown` — who may fish, which is a different question from what they may fish with |
+| `basis` | `wrc_class` / `posted_signage` (Special Regulation water: read the sign) / `unrecognised_class` |
+| `periods`, `closures` | for water whose answer moves with the calendar |
+| `source` | the NCWRC URL for the reach |
+
+Season boundaries are stored as **anchors**, not dates — `{"month": 6,
+"weekday": "saturday", "nth": 1}` is the first Saturday in June, and
+`{"weekday": "friday", "before": …}` is the Friday before it, which is how the
+regulation itself states the end of the Delayed Harvest season. A hardcoded
+date would be wrong within twelve months. Periods tile the year half-open, so
+every date lands in exactly one of them.
+
+A day that holds more than one answer carries `day_parts`, sub-day windows whose
+boundaries are either a clock time (`{"clock": "06:00"}`) or a symbolic solar
+one (`{"solar": "sunset", "offset_minutes": 30}`) left for a consumer with an
+ephemeris to resolve — this script never guesses a sunset.
+
+`bait_rule_on(rule, date[, time])` flattens all of that to the answer in force,
+and `may_fish(open_to, angler)` turns `open_to` into a yes/no for an adult or a
+youth angler. Both are importable; nothing in them touches the network.
+
+The Delayed Harvest handover is the case the shape exists for. On the first
+Saturday in June the water is **closed** until 6 a.m., **youth-only** (under 16)
+from 6 a.m. to noon, and open to all from noon; the restricted season before it
+ends one-half hour after sunset on the **Friday** before, not at midnight on the
+Saturday. Ask with a time and you get `closed` / `youth_only` / `all_anglers`;
+ask with only a date and you get `varies_by_time` and the `day_parts` — never a
+bare "allowed" that would send an adult onto a youth-only stream.
 
 ### 5. `build_species_kb.py`
 - **Source:** local files only — `species-knowledge/curated/*.json` (hand-authored
