@@ -68,6 +68,11 @@ AGENCY_FACTUAL = "agency-factual"
 AGENCY_MEDIA = "agency-media"
 CURATED = "curated-original"
 PERSONAL = "personal"
+# The only tier that carries an *obligation* rather than a risk: every other tier is
+# either freely redistributable or flagged for removal. ODbL is usable — including
+# commercially — but conditionally, so a consumer filtering by tier has to be able to
+# see it. Folding OpenStreetMap into agency-factual would make the condition invisible.
+COMMUNITY = "community-share-alike"
 
 TIERS = {
     FEDERAL: "Work of the US federal government, 17 U.S.C. §105 — "
@@ -82,6 +87,12 @@ TIERS = {
              "plain-language regulation summaries, scoring weights).",
     PERSONAL: "Private user data (catch logs, session telemetry). Never "
               "produced by these extractors.",
+    COMMUNITY: "Community-contributed open data under a share-alike licence "
+               "(OpenStreetMap, ODbL 1.0). Not an agency source and not public "
+               "domain. Usable commercially: displaying it is a Produced Work and "
+               "needs attribution only. Redistributing it, or a database derived "
+               "from it, is a Derivative Database and must itself be offered under "
+               "ODbL.",
 }
 
 # ---- roles --------------------------------------------------------------------

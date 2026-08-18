@@ -1,0 +1,184 @@
+{
+  "_note": "high_rock is a real Overpass response, captured 2026-08-18 for bbox 35.45,-80.65,36.0,-79.95 (Davidson/Rowan, High Rock Lake). Contributor `user`/`uid` fields are stripped: they are personal data and the extractor ignores them. edge_cases is synthetic — hand-written elements for the classification rules that the two real shops do not exercise. OpenStreetMap data, (c) OpenStreetMap contributors, ODbL 1.0.",
+  "high_rock": {
+    "version": 0.6,
+    "generator": "Overpass API 0.7.62.11 87bfad18",
+    "osm3s": {
+      "timestamp_osm_base": "2026-08-18T00:22:11Z",
+      "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+    },
+    "elements": [
+      {
+        "type": "node",
+        "id": 9002428984,
+        "lat": 35.8883817,
+        "lon": -80.1915744,
+        "timestamp": "2021-08-12T22:03:40Z",
+        "version": 1,
+        "changeset": 109595673,
+        "tags": {
+          "name": "Lake Thom-A-Lex Park Bait Shop",
+          "seasonal": "summer",
+          "shop": "fishing"
+        }
+      },
+      {
+        "type": "node",
+        "id": 10588666767,
+        "lat": 35.7137226,
+        "lon": -80.2671959,
+        "timestamp": "2025-11-09T11:14:17Z",
+        "version": 2,
+        "changeset": 174411937,
+        "tags": {
+          "addr:city": "Lexington",
+          "addr:housenumber": "7169",
+          "addr:postcode": "27292",
+          "addr:state": "NC",
+          "addr:street": "NC-8",
+          "name": "Mimi's Bait & Tackle",
+          "phone": "+1-336-798-3588",
+          "shop": "fishing"
+        }
+      }
+    ]
+  },
+  "edge_cases": {
+    "version": 0.6,
+    "generator": "synthetic",
+    "elements": [
+      {
+        "type": "node",
+        "id": 100,
+        "lat": 35.5,
+        "lon": -80.3,
+        "timestamp": "2024-03-01T00:00:00Z",
+        "tags": {
+          "name": "Open All Night Bait",
+          "shop": "bait",
+          "opening_hours": "24/7",
+          "contact:phone": "+1-704-555-0100",
+          "contact:website": "https://example.invalid/bait"
+        }
+      },
+      {
+        "type": "way",
+        "id": 200,
+        "center": {"lat": 35.61, "lon": -80.21},
+        "timestamp": "2019-06-14T09:00:00Z",
+        "tags": {
+          "name": "Tackle Barn",
+          "shop": "fishing_tackle",
+          "opening_hours": "Mo-Sa 06:00-19:00; Su 06:00-12:00",
+          "check_date": "2023-04-01"
+        }
+      },
+      {
+        "type": "node",
+        "id": 300,
+        "lat": 35.62,
+        "lon": -80.22,
+        "timestamp": "2025-01-05T00:00:00Z",
+        "tags": {
+          "amenity": "vending_machine",
+          "vending": "fishing_bait;drinks",
+          "operator": "Dockside Marina",
+          "opening_hours": "24/7"
+        }
+      },
+      {
+        "type": "node",
+        "id": 400,
+        "lat": 35.63,
+        "lon": -80.23,
+        "timestamp": "2022-07-07T00:00:00Z",
+        "tags": {
+          "name": "Lakeside Gas & Grocery",
+          "shop": "convenience",
+          "bait": "yes",
+          "opening_hours": "unknown"
+        }
+      },
+      {
+        "type": "node",
+        "id": 500,
+        "lat": 35.64,
+        "lon": -80.24,
+        "timestamp": "2020-02-02T00:00:00Z",
+        "tags": {
+          "name": "Piedmont Sports",
+          "shop": "sports",
+          "sport": "fishing;hunting"
+        }
+      },
+      {
+        "type": "way",
+        "id": 600,
+        "center": {"lat": 35.65, "lon": -80.25},
+        "timestamp": "2018-01-01T00:00:00Z",
+        "tags": {
+          "name": "High Rock Marina",
+          "leisure": "marina",
+          "fishing": "yes"
+        }
+      },
+      {
+        "type": "node",
+        "id": 700,
+        "lat": 35.66,
+        "lon": -80.26,
+        "timestamp": "2015-05-05T00:00:00Z",
+        "tags": {
+          "name": "Old Abandoned Bait Stand",
+          "disused:shop": "fishing",
+          "bait": "yes",
+          "disused": "yes"
+        }
+      },
+      {
+        "type": "node",
+        "id": 800,
+        "lat": 35.67,
+        "lon": -80.27,
+        "timestamp": "2017-08-08T00:00:00Z",
+        "tags": {
+          "name": "Pump House Bait",
+          "shop": "fishing",
+          "disused:amenity": "fuel"
+        }
+      },
+      {
+        "type": "node",
+        "id": 900,
+        "lat": 35.68,
+        "lon": -80.28,
+        "timestamp": "2021-09-09T00:00:00Z",
+        "tags": {
+          "natural": "water",
+          "name": "Worm Pond",
+          "bait": "yes"
+        }
+      },
+      {
+        "type": "relation",
+        "id": 1000,
+        "timestamp": "2023-03-03T00:00:00Z",
+        "tags": {
+          "name": "Geometryless Tackle",
+          "shop": "fishing"
+        }
+      },
+      {
+        "type": "node",
+        "id": 10588666767,
+        "lat": 35.7137226,
+        "lon": -80.2671959,
+        "timestamp": "2025-11-09T11:14:17Z",
+        "tags": {
+          "name": "Mimi's Bait & Tackle",
+          "shop": "fishing"
+        }
+      }
+    ]
+  }
+}
