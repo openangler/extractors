@@ -185,3 +185,31 @@ class TestJoinFacilities(unittest.TestCase):
         recs[0]["locationName"] = "LAKE JULIAN - CLOSED UNTIL FURTHER NOTICE"
         joined, _, _ = ex.join_facilities(recs, self._facilities(("PFA", self.JULIAN)))
         self.assertEqual(joined, 1)
+
+
+class TestAbsentValues(unittest.TestCase):
+    """ArcGIS "no value" spellings that survive a truthiness check.
+
+    51 facility values carry the literal "<Null>", 36 of them in Caution_Notes — a
+    field an app shows to a person, where "<Null>" rendered as a safety warning is a
+    visible bug rather than a missing one.
+    """
+
+    def test_the_string_spellings_are_absent(self):
+        for v in (None, "", " ", "<Null>", "<null>", "None", "NULL", "N/A"):
+            self.assertTrue(ex._is_absent(v), f"{v!r} should count as absent")
+
+    def test_real_values_are_kept(self):
+        for v in ("ASTORIA LANDING", 0, 1, "0", "Nonesuch Creek"):
+            self.assertFalse(ex._is_absent(v), f"{v!r} should be kept")
+
+    def test_sentinels_are_stripped_from_a_joined_block(self):
+        recs = [{"locationID": 1, "locationName": "X", "latitude": 35.0, "longitude": -82.0,
+                 "county": "Buncombe"}]
+        fac = [("PFA", "x", 35.0, -82.0,
+                {"Caution_Notes": "<Null>", "Fish_Feeder": 1, "Access_Notes": "steep bank"})]
+        ex.join_facilities(recs, fac)
+        block = recs[0]["facilities"]
+        self.assertNotIn("Caution_Notes", block)
+        self.assertEqual(block["Fish_Feeder"], 1)
+        self.assertEqual(block["Access_Notes"], "steep bank")
