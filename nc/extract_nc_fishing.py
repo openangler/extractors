@@ -112,6 +112,19 @@ def km_between(lat1, lon1, lat2, lon2):
     return math.hypot(dlat, dlon)
 
 
+# ArcGIS hands back several different "no value" spellings, and the string ones are the
+# dangerous kind: they survive a truthiness check and reach a UI. 51 facility values
+# carry the literal "<Null>", 36 of them in Caution_Notes — a field an app shows to a
+# person, where rendering "<Null>" as a safety warning is a visible bug.
+_ABSENT_VALUES = {"", " ", "<null>", "none", "null", "n/a"}
+
+
+def _is_absent(value):
+    return value is None or (isinstance(value, str)
+                             and value.strip().lower() in _ABSENT_VALUES)
+
+
+
 def join_facilities(records, facilities, match_km=MATCH_KM):
     """Attach a `facilities` block to each record that matches one PFA and/or one BAA.
 
@@ -148,7 +161,7 @@ def join_facilities(records, facilities, match_km=MATCH_KM):
         for kind in sorted(by_kind):
             dist, attrs = by_kind[kind][0]
             block.update({k: v for k, v in attrs.items()
-                          if v not in (None, "", " ") and k != "OBJECTID"})
+                          if not _is_absent(v) and k != "OBJECTID"})
             block[f"_{kind.lower()}_match_km"] = round(dist, 3)
         block["_source"] = "+".join(sorted(by_kind))
         rec["facilities"] = block
