@@ -26,6 +26,7 @@ Output -> trout-waters/pmtw-reaches.json     (the reach index)
 import argparse
 import copy
 import datetime
+import glob
 import json
 import os
 import sys
@@ -802,7 +803,17 @@ def main():
     TW = os.path.join(BASE, "trout-waters")
     print(f"Dataset -> {BASE}", flush=True)
 
-    streams = json.load(open(os.path.join(TW, "pmtw-streams-2025.geojson")))
+    # Vintage-agnostic: the extractor names this file by NCWRC's layer year, so a
+    # hardcoded year makes bumping the source layer break this step — which is exactly
+    # what happened when PMTW moved 2025 -> 2026 (openangler/extractors#16). Take the
+    # newest pmtw-streams-*.geojson present, and say so plainly if there is none.
+    candidates = sorted(glob.glob(os.path.join(TW, "pmtw-streams-*.geojson")))
+    if not candidates:
+        raise SystemExit(
+            f"no pmtw-streams-*.geojson in {TW} — run nc/extract_nc_fishing.py first")
+    streams_path = candidates[-1]
+    print(f"  streams layer: {os.path.basename(streams_path)}", flush=True)
+    streams = json.load(open(streams_path))
     counties = load_counties(BASE)
     print(f"Building layer from {len(streams['features'])} PMTW reaches ...", flush=True)
 
