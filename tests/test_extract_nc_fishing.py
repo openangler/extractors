@@ -67,7 +67,7 @@ class TestArtifactTiers(unittest.TestCase):
     def test_photos_are_the_only_media(self):
         import _common
         counts = {"Mountains": 239, "Piedmont": 355, "Coastal Plain": 317}
-        layers = {"trout-waters/pmtw-streams-2025.geojson": "..."}
+        layers = {"trout-waters/pmtw-streams-2026.geojson": "..."}
         entries = _common.build_entries(
             "extract_nc_fishing.py", ex.artifact_tiers(counts, layers, True))
         media = sorted(p for p, e in entries.items()
@@ -77,7 +77,7 @@ class TestArtifactTiers(unittest.TestCase):
                                  "fishing-areas/piedmont/photos/"])
         self.assertEqual(entries["fishing-areas/all-locations.json"]["tiers"],
                          [_common.AGENCY_FACTUAL])
-        self.assertIn("trout-waters/pmtw-streams-2025.geojson", entries)
+        self.assertIn("trout-waters/pmtw-streams-2026.geojson", entries)
 
     def test_no_photo_run_claims_no_media(self):
         import _common
