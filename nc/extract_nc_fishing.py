@@ -296,8 +296,12 @@ def main():
             f"{AGOL}/countyboundaries/FeatureServer/0",
         "reference-layers/game-lands-general.geojson":
             f"{AGOL}/gamelands_general/FeatureServer/21",
+        # Layer 22, not 0: this service exposes a single layer at a non-zero id, exactly
+        # like gamelands_general at 21. Requesting /0 answers "Invalid URL", and the
+        # download loop treats that as a per-layer error and carries on — so the file
+        # would simply never have been written and the run would still report success.
         "reference-layers/game-lands-detail.geojson":
-            f"{AGOL}/gamelands_detail/FeatureServer/0",
+            f"{AGOL}/gamelands_detail/FeatureServer/22",
         "reference-layers/fish-attractors.geojson":
             f"{AGOL}/Fish_Attractors_public_view/FeatureServer/0",
         "reference-layers/coastal-joint-waters.geojson":
