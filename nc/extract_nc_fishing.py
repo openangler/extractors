@@ -339,9 +339,19 @@ def main():
                 break
             batch = gj.get("features", [])
             feats.extend(batch)
-            if len(batch) < page or not gj.get("exceededTransferLimit"):
+            # With f=geojson, ArcGIS reports the paging flag under `properties`, NOT at
+            # the top level as it does for f=json. Reading only the top level made this
+            # always None, so the loop broke after the first page and every layer larger
+            # than the service's maxRecordCount (2000 here) was silently truncated to
+            # exactly that many features — a full-looking file, quietly missing rows.
+            props = gj.get("properties") or {}
+            exceeded = gj.get("exceededTransferLimit") or props.get("exceededTransferLimit")
+            if not batch or not exceeded:
                 break
-            offset += page
+            # Advance by what was actually returned, not by the requested page size, so a
+            # server that caps below `page` still walks the whole layer instead of
+            # skipping rows.
+            offset += len(batch)
         out = {"type": "FeatureCollection", "features": feats}
         with open(path, "w") as f:
             json.dump(out, f)
