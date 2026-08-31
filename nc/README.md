@@ -24,7 +24,11 @@ Steps 1 and 2 are independent of each other. Steps 3–5 depend on step 1.
 
 ### 1. `extract_nc_fishing.py`
 - **Source:** NCWRC public map app `https://www.ncpaws.org/NCWRCMaps/FishingAreas`
-  and the ArcGIS FeatureServers behind it
+  and the ArcGIS FeatureServers behind it. The map app carries ~27 fields per site;
+  the dedicated `NCWRC_Public_Fishing_Areas_view` / `NCWRC_Boating_Access_Areas_view`
+  services carry ~50, and step 6 joins them on (name, proximity) — 496 of 526 PFA/BAA
+  sites match, 92 of them to both services at once. That join is where `Fish_Feeder`
+  and `Lighting` come from.
   (`services1.arcgis.com/YfqBAUM5nWR3yhGP`). Public, no auth.
 - **Does:** pulls every fishing-area marker with full detail (amenities, species,
   management, photo), downloads site photos, and downloads the ArcGIS map layers
