@@ -115,3 +115,73 @@ class TestArtifactTiers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestJoinFacilities(unittest.TestCase):
+    """The facility join, and the bug that made it destroy the dataset.
+
+    The first version iterated the 8-field marker list from step 1 instead of the
+    detailed records, and the caller then wrote that same list back over
+    all-locations.json — so every record lost county, region, amenities and
+    speciesInfo, leaving a file that was still the right length and still parsed.
+    """
+
+    JULIAN = {"PFA_Name": "LAKE JULIAN", "Latitude": 35.4799, "Longitude": -82.5373,
+              "Fish_Feeder": 1, "Lighting": 1, "OBJECTID": 39, "Website": ""}
+
+    def _detailed(self):
+        return [{"locationID": 1619, "locationName": "LAKE JULIAN",
+                 "latitude": 35.4799, "longitude": -82.5373,
+                 "county": "Buncombe", "region": "Mountains",
+                 "locationTypeName": "Public Fishing Area (PFA)",
+                 "boatRamp": True, "speciesInfo": [{"commonName": "Channel Catfish"}]}]
+
+    def _facilities(self, *entries):
+        return [(kind, ex.norm_site_name(a["PFA_Name"] if "PFA_Name" in a else a["BAA_Name"]),
+                 a["Latitude"], a["Longitude"], a) for kind, a in entries]
+
+    def test_detail_fields_survive_the_join(self):
+        recs = self._detailed()
+        ex.join_facilities(recs, self._facilities(("PFA", self.JULIAN)))
+        r = recs[0]
+        for field in ("county", "region", "locationTypeName", "boatRamp", "speciesInfo"):
+            self.assertIn(field, r, f"{field} was lost by the join")
+        self.assertEqual(r["county"], "Buncombe")
+        self.assertEqual(r["facilities"]["Fish_Feeder"], 1)
+
+    def test_objectid_and_blanks_are_stripped(self):
+        recs = self._detailed()
+        ex.join_facilities(recs, self._facilities(("PFA", self.JULIAN)))
+        self.assertNotIn("OBJECTID", recs[0]["facilities"])
+        self.assertNotIn("Website", recs[0]["facilities"])
+
+    def test_a_site_that_is_both_pfa_and_baa_merges_rather_than_going_ambiguous(self):
+        baa = {"BAA_Name": "LAKE JULIAN", "Latitude": 35.4799, "Longitude": -82.5373,
+               "Boat_Ramp": 1}
+        recs = self._detailed()
+        joined, dual, ambiguous = ex.join_facilities(
+            recs, self._facilities(("PFA", self.JULIAN), ("BAA", baa)))
+        self.assertEqual((joined, dual, ambiguous), (1, 1, 0))
+        self.assertEqual(recs[0]["facilities"]["_source"], "BAA+PFA")
+        self.assertEqual(recs[0]["facilities"]["Fish_Feeder"], 1)
+        self.assertEqual(recs[0]["facilities"]["Boat_Ramp"], 1)
+
+    def test_two_of_the_same_kind_are_left_unjoined(self):
+        twin = dict(self.JULIAN, Latitude=35.4800, Fish_Feeder=0)
+        recs = self._detailed()
+        joined, _, ambiguous = ex.join_facilities(
+            recs, self._facilities(("PFA", self.JULIAN), ("PFA", twin)))
+        self.assertEqual((joined, ambiguous), (0, 1))
+        self.assertNotIn("facilities", recs[0])
+
+    def test_a_like_named_site_too_far_away_does_not_match(self):
+        far = dict(self.JULIAN, Latitude=36.0, Longitude=-80.0)
+        recs = self._detailed()
+        joined, _, _ = ex.join_facilities(recs, self._facilities(("PFA", far)))
+        self.assertEqual(joined, 0)
+
+    def test_closure_text_in_the_app_name_still_matches(self):
+        recs = self._detailed()
+        recs[0]["locationName"] = "LAKE JULIAN - CLOSED UNTIL FURTHER NOTICE"
+        joined, _, _ = ex.join_facilities(recs, self._facilities(("PFA", self.JULIAN)))
+        self.assertEqual(joined, 1)

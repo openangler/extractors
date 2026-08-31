@@ -93,6 +93,92 @@ def clean_dms(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+# The map app appends closure text to a name ("ENO RIVER - CLOSED UNTIL FURTHER NOTICE
+# DUE TO LOW WATER LEVEL CONDITIONS"); the feature services do not. Nine sites, and
+# every one of them fails to match without this.
+_STATUS_SUFFIX = re.compile(r"\s+-\s+(closed|temporarily|under|no )\b.*$", re.I)
+MATCH_KM = 1.5
+
+
+def norm_site_name(name):
+    """Loose name key for matching the map app against the feature services."""
+    return re.sub(r"[^a-z0-9]+", " ",
+                  _STATUS_SUFFIX.sub("", name or "").lower()).strip()
+
+
+def km_between(lat1, lon1, lat2, lon2):
+    dlat = (lat2 - lat1) * 111.32
+    dlon = (lon2 - lon1) * 111.32 * math.cos(math.radians((lat1 + lat2) / 2))
+    return math.hypot(dlat, dlon)
+
+
+def join_facilities(records, facilities, match_km=MATCH_KM):
+    """Attach a `facilities` block to each record that matches one PFA and/or one BAA.
+
+    MUTATES `records` in place and returns (joined, dual, ambiguous). `records` must be
+    the DETAILED per-location records — the ones carrying county, region, amenities and
+    speciesInfo — not the 8-field marker list from step 1. Passing the marker list is
+    what the first version of this did, and because the caller then wrote the same list
+    back over all-locations.json, every detailed record was replaced by its stub.
+
+    A site is very often BOTH a public fishing area and a boating access area — 92 are.
+    Two hits of DIFFERENT kinds is not ambiguity, it is one place seen through two
+    services, and both halves are kept. Two hits of the SAME kind are undecidable and
+    are left unjoined and counted: a missing amenity block is recoverable, a wrong one
+    is not.
+    """
+    joined = dual = ambiguous = 0
+    for rec in records:
+        rlat, rlon = rec.get("latitude"), rec.get("longitude")
+        if rlat is None or rlon is None:
+            continue
+        target = norm_site_name(rec.get("locationName"))
+        hits = [(k, a, km_between(rlat, rlon, flat, flon))
+                for k, fname, flat, flon, a in facilities
+                if fname == target and km_between(rlat, rlon, flat, flon) <= match_km]
+        if not hits:
+            continue
+        by_kind = {}
+        for kind, attrs, dist in hits:
+            by_kind.setdefault(kind, []).append((dist, attrs))
+        if any(len(v) > 1 for v in by_kind.values()):
+            ambiguous += 1
+            continue
+        block = {}
+        for kind in sorted(by_kind):
+            dist, attrs = by_kind[kind][0]
+            block.update({k: v for k, v in attrs.items()
+                          if v not in (None, "", " ") and k != "OBJECTID"})
+            block[f"_{kind.lower()}_match_km"] = round(dist, 3)
+        block["_source"] = "+".join(sorted(by_kind))
+        rec["facilities"] = block
+        joined += 1
+        if len(by_kind) > 1:
+            dual += 1
+    return joined, dual, ambiguous
+
+
+def load_facilities(out_dir):
+    """Read the PFA/BAA geojson layers into the tuple form join_facilities expects."""
+    facilities = []
+    for relpath, kind in (("fishing-areas/pfa-facilities.geojson", "PFA"),
+                          ("fishing-areas/baa-facilities.geojson", "BAA")):
+        path = os.path.join(out_dir, relpath)
+        if not os.path.exists(path):
+            continue
+        with open(path) as fh:
+            for feat in json.load(fh).get("features", []):
+                a = feat.get("properties") or {}
+                g = (feat.get("geometry") or {}).get("coordinates") or [None, None]
+                name = a.get("PFA_Name") or a.get("BAA_Name") or a.get("Name")
+                lat = a.get("Latitude") if a.get("Latitude") is not None else g[1]
+                lon = a.get("Longitude") if a.get("Longitude") is not None else g[0]
+                if name and lat is not None and lon is not None:
+                    facilities.append((kind, norm_site_name(name), float(lat), float(lon), a))
+    return facilities
+
+
+
 def artifact_tiers(counts, layers, dl_photos):
     """Provenance tier and role for every artifact this script writes."""
     facts = "NCWRC fishing-area facts (coordinates, amenities, species, management)."
@@ -370,82 +456,15 @@ def main():
     # like-named sites on different waters cannot collide. Anything ambiguous is left
     # unjoined and counted — a missing amenity block is recoverable, a wrong one is not.
     print("[6/6] Joining PFA/BAA facility attributes to locations ...", flush=True)
-    MATCH_KM = 1.5
-    # The map app appends closure text to a name ("ENO RIVER - CLOSED UNTIL FURTHER
-    # NOTICE DUE TO LOW WATER LEVEL CONDITIONS"); the feature services do not. Nine
-    # sites, and every one of them fails to match without this.
-    STATUS_SUFFIX = re.compile(r"\s+-\s+(closed|temporarily|under|no )\b.*$", re.I)
-
-    def norm(name):
-        return re.sub(r"[^a-z0-9]+", " ",
-                      STATUS_SUFFIX.sub("", name or "").lower()).strip()
-
-    def km(lat1, lon1, lat2, lon2):
-        dlat = (lat2 - lat1) * 111.32
-        dlon = (lon2 - lon1) * 111.32 * math.cos(math.radians((lat1 + lat2) / 2))
-        return math.hypot(dlat, dlon)
-
-    facilities = []
-    for relpath, kind in (("fishing-areas/pfa-facilities.geojson", "PFA"),
-                          ("fishing-areas/baa-facilities.geojson", "BAA")):
-        path = os.path.join(OUT, relpath)
-        if not os.path.exists(path):
-            continue
-        with open(path) as f:
-            for feat in json.load(f).get("features", []):
-                a = feat.get("properties") or {}
-                g = (feat.get("geometry") or {}).get("coordinates") or [None, None]
-                name = a.get("PFA_Name") or a.get("BAA_Name") or a.get("Name")
-                lat = a.get("Latitude") if a.get("Latitude") is not None else g[1]
-                lon = a.get("Longitude") if a.get("Longitude") is not None else g[0]
-                if name and lat is not None and lon is not None:
-                    facilities.append((kind, norm(name), float(lat), float(lon), a))
-
-    def clean(attrs):
-        return {k: v for k, v in attrs.items()
-                if v not in (None, "", " ") and k != "OBJECTID"}
-
-    joined = ambiguous = dual = 0
-    for rec in master:
-        rlat, rlon = rec.get("latitude"), rec.get("longitude")
-        if rlat is None or rlon is None:
-            continue
-        target = norm(rec.get("locationName"))
-        hits = [(k, a, km(rlat, rlon, flat, flon))
-                for k, fname, flat, flon, a in facilities
-                if fname == target and km(rlat, rlon, flat, flon) <= MATCH_KM]
-        if not hits:
-            continue
-
-        # A site is very often BOTH a public fishing area and a boating access area —
-        # 92 of them are. Two hits of DIFFERENT kinds is not ambiguity, it is the same
-        # place described by two services, and both halves are wanted. Only two hits of
-        # the SAME kind are genuinely undecidable; those are left unjoined and counted,
-        # because a missing amenity block is recoverable and a wrong one is not.
-        by_kind = {}
-        for kind, attrs, dist in hits:
-            by_kind.setdefault(kind, []).append((dist, attrs))
-        if any(len(v) > 1 for v in by_kind.values()):
-            ambiguous += 1
-            continue
-
-        block = {}
-        for kind in sorted(by_kind):
-            dist, attrs = by_kind[kind][0]
-            block.update(clean(attrs))
-            block[f"_{kind.lower()}_match_km"] = round(dist, 3)
-        block["_source"] = "+".join(sorted(by_kind))
-        rec["facilities"] = block
-        joined += 1
-        if len(by_kind) > 1:
-            dual += 1
-
-    print(f"      joined {joined}/{len(master)} locations "
+    joined, dual, ambiguous = join_facilities(all_recs, load_facilities(OUT))
+    print(f"      joined {joined}/{len(all_recs)} locations "
           f"({dual} matched both a PFA and a BAA, "
           f"{ambiguous} ambiguous and left unjoined)", flush=True)
 
+    # Rewrite with indent=2 to match how step 3 wrote it, so the only diff between a
+    # pre- and post-join file is the facilities block rather than the whole formatting.
     with open(os.path.join(OUT, "fishing-areas", "all-locations.json"), "w") as f:
-        json.dump(master, f)
+        json.dump(all_recs, f, indent=2)
 
     # summary + provenance manifest
     run = {
