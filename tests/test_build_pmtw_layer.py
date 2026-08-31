@@ -142,3 +142,51 @@ class TestArtifactTiers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVintageTolerantFields(unittest.TestCase):
+    """PMTW 2026 renamed the truncated shapefile attributes; both must still read.
+
+    The 2026 layer also kept `WRC_Class` around holding the literal string "None" on
+    all 1807 features, so reading it still succeeded and classified every reach as
+    null — a full-length, valid, entirely unclassified trout layer.
+    """
+
+    GEOM = {"type": "LineString", "coordinates": [[-82.0, 35.7], [-82.01, 35.71]]}
+
+    def _record(self, props):
+        return pmtw.reach_record({"properties": props, "geometry": self.GEOM}, [])
+
+    def test_2025_attribute_names(self):
+        r = self._record({"Displ_Name": "Cranberry Creek",
+                          "WRC_Class": "Hatchery Supported Trout Waters",
+                          "FIRST_Reg1": "entire stream",
+                          "FIRST_Reg_": "Cranberry Creek",
+                          "FIRST_MHTW": " ", "MHTW_Reach": " "})
+        self.assertEqual(r["wrc_class"], "Hatchery Supported Trout Waters")
+        self.assertEqual(r["reach"], "entire stream")
+
+    def test_2026_attribute_names(self):
+        r = self._record({"Displ_Name": "Cranberry Creek",
+                          "WRC_Class": "None",
+                          "FIRST_WRC_CLASS": "Hatchery Supported Trout Waters",
+                          "FIRST_Reg_Descri": "entire stream",
+                          "FIRST_Reg_Name": "Cranberry Creek",
+                          "FIRST_MHTW_City": " ", "MHTW_Reach": " "})
+        self.assertEqual(r["wrc_class"], "Hatchery Supported Trout Waters")
+        self.assertEqual(r["reach"], "entire stream")
+
+    def test_the_literal_string_None_is_not_a_class(self):
+        r = self._record({"Displ_Name": "X", "WRC_Class": "None"})
+        self.assertIsNone(r["wrc_class"])
+
+    def test_2026_still_gets_a_regulation_summary(self):
+        r = self._record({"Displ_Name": "X", "WRC_Class": "None",
+                          "FIRST_WRC_CLASS": "Delayed Harvest Trout Waters"})
+        self.assertNotEqual(r["regulation_summary"], "See NCWRC rules.")
+
+    def test_mountain_heritage_reads_the_2026_city_field(self):
+        r = self._record({"Displ_Name": "X", "FIRST_WRC_CLASS": "Wild Trout Waters",
+                          "FIRST_MHTW_City": "Waynesville"})
+        self.assertTrue(r["mountain_heritage"])
+        self.assertEqual(r["mhtw_reach"], "Waynesville")

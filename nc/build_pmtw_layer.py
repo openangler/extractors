@@ -724,6 +724,31 @@ def elevation(lat, lon):
         return None
 
 
+# NCWRC renamed the truncated shapefile-style attributes when PMTW moved to the 2026
+# layer, and left the old `WRC_Class` in place holding the literal string "None" on all
+# 1807 features. Reading it still "worked" and produced a null class for every reach.
+#
+#   2025            2026                meaning
+#   WRC_Class    -> FIRST_WRC_CLASS     regulation class
+#   FIRST_Reg1   -> FIRST_Reg_Descri    reach description ("entire stream")
+#   FIRST_Reg_   -> FIRST_Reg_Name      stream name
+#   FIRST_MHTW   -> FIRST_MHTW_City     Mountain Heritage city
+#
+# Read both vintages so a dataset built from either layer year still classifies, and
+# treat " " and the literal "None" as absent rather than as values.
+_ABSENT = {"", " ", "None", "none", "NULL"}
+
+
+def _prop(props, *names):
+    """First meaningful value among alternative attribute names, else None."""
+    for name in names:
+        value = props.get(name)
+        if value is not None and str(value).strip() not in _ABSENT:
+            return value
+    return None
+
+
+
 def reach_record(feature, counties):
     """One PMTW GeoJSON feature -> one reach record. Pure; no elevation yet."""
     p = feature["properties"]
@@ -731,12 +756,12 @@ def reach_record(feature, counties):
     if not mp:
         return None
     lon, lat = mp[0], mp[1]
-    cls = p.get("WRC_Class")
+    cls = _prop(p, "FIRST_WRC_CLASS", "WRC_Class")
     link = p.get("WEB_Refere")
-    mhtw = (p.get("FIRST_MHTW", "").strip() or p.get("MHTW_Reach", "").strip())
+    mhtw = (_prop(p, "FIRST_MHTW_City", "FIRST_MHTW", "MHTW_Reach") or "").strip()
     return {
         "stream_name": p.get("Displ_Name"),
-        "reach": p.get("FIRST_Reg1") or p.get("FIRST_Reg_"),
+        "reach": _prop(p, "FIRST_Reg_Descri", "FIRST_Reg1", "FIRST_Reg_Name", "FIRST_Reg_"),
         "wrc_class": cls,
         "regulation_summary": REGS.get(cls, "See NCWRC rules."),
         # the same knowledge as regulation_summary, minus the English
