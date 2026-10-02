@@ -12,7 +12,8 @@ This repo is part of **[OpenAngler](https://github.com/openangler)** — an
 open-source effort providing open tooling and open data for anglers, built
 entirely from public data.
 
-**Status: alpha.** Only North Carolina is implemented so far.
+**Status: alpha.** North Carolina (full pipeline) and South Carolina (access
+points + USGS enrichment) are implemented.
 
 ## Layout
 
@@ -22,7 +23,12 @@ self-contained pipeline:
 ```
 extractors/
 ├── nc/            North Carolina pipeline (5 scripts) — see nc/README.md
-│   └── _common.py   shared: --out/$OPENANGLER_OUT resolution + tier manifest
+│   └── _common.py   NC's binding of shared/manifest.py (+ its default --out)
+├── sc/            South Carolina pipeline (2 scripts) — see sc/README.md
+│   └── _common.py   SC's binding: no default --out, refuses another state's dataset
+├── shared/        state-independent helpers
+│   ├── manifest.py  --out/$OPENANGLER_OUT resolution, state guard, tier manifest
+│   └── usgs.py      3DEP elevation, NHDPlus HR reach, NWIS gages for one point
 ├── tools/         dataset-level, state-independent
 │   └── plan_bundle.py   consumer-side tier/role filter, driven by manifest.json
 ├── tests/         stdlib unittest for the pure logic; never touches the network
@@ -32,11 +38,18 @@ extractors/
 └── CLAUDE.md      (this file)
 ```
 
-Future states get sibling directories (`sc/`, `va/`, `ga/`, …). Keep each
-state's code inside its own directory; do not cross-import between states.
-The manifest contract lives in `nc/_common.py` for now and `tools/` imports it
-from there — when a second state lands, that module graduates to a shared one
-rather than being copied.
+Each state is a sibling directory (`nc/`, `sc/`, later `va/`, `ga/`, …). Keep
+each state's code inside its own directory; do not cross-import between states —
+anything two states need goes in `shared/`. Each state's `_common.py` re-exports
+`shared/manifest.py` and binds that state's default output directory.
+
+**One dataset per state.** Every state's pipeline writes
+`fishing-areas/all-locations.json`, so states never share an output directory:
+each manifest records its `state` (ISO 3166-2), a manifest with artifacts and no
+`state` is legacy NC, and `manifest.claim_state()` makes a pipeline refuse a
+directory that belongs to another state. Script names are unique across states
+(`enrich_usgs.py` vs `enrich_sc_usgs.py`) because the tests put every state
+directory on one `sys.path`.
 
 ## The NC pipeline (`nc/`)
 

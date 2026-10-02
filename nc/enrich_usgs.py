@@ -24,149 +24,18 @@ Output -> <out>/fishing-areas/enrichment.json  (keyed by locationID)
 
 import argparse
 import json
-import math
 import os
-import time
-import urllib.parse
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import _common
 from _common import AGENCY_FACTUAL, ARCHIVE, FEDERAL, QUERY
 
-EPQS = "https://epqs.nationalmap.gov/v1/json"
-NHD = "https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/3/query"
-NWIS = "https://waterservices.usgs.gov/nwis/site/"
-UA = "nc-fishing-enrich/1.0"
-
-
-def get(url, tries=4):
-    for i in range(tries):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=45) as r:
-                return r.read().decode("utf-8", "replace")
-        except Exception:
-            if i == tries - 1:
-                raise
-            time.sleep(1.2 * (i + 1))
-
-
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * R * math.asin(math.sqrt(a))
-
-
-def load_gages():
-    """All active NC streamgages with real-time data -> [(id,name,lat,lon)]."""
-    q = urllib.parse.urlencode({"format": "rdb", "stateCd": "nc", "siteType": "ST",
-                                "siteStatus": "active", "hasDataTypeCd": "iv"})
-    gages = []
-    for line in get(f"{NWIS}?{q}").splitlines():
-        if line.startswith("USGS\t"):
-            f = line.split("\t")
-            try:
-                gages.append((f[1], f[2], float(f[4]), float(f[5])))
-            except (ValueError, IndexError):
-                pass
-    return gages
-
-
-# NHDPlus HR value-added attributes carry no-data sentinels rather than nulls:
-# -9 on streamorde, -9998/-9999 on slope / totdasqkm / qama. They look like data
-# (a -9 stream order sorts below a headwater stream), so normalise them here —
-# at extraction, once — instead of leaving every consumer to recognise them.
-NHD_NODATA = (-9.0, -9998.0, -9999.0)
-
-
-def nhd_number(raw, allow_negative=False):
-    """NHDPlus VAA value -> float, or None if it is a no-data sentinel.
-
-    Stream order, slope, drainage area and mean-annual flow are all
-    non-negative quantities, so any negative is treated as no-data too — that
-    catches sentinel codes NHDPlus adds later without a code change.
-    """
-    if raw is None or isinstance(raw, bool):
-        return None
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        return None
-    if v in NHD_NODATA or (not allow_negative and v < 0):
-        return None
-    return v
-
-
-def epqs_url(lat, lon):
-    return f"{EPQS}?" + urllib.parse.urlencode(
-        {"x": lon, "y": lat, "units": "Meters", "wkid": 4326})
-
-
-def parse_elevation(payload):
-    """EPQS response -> metres. Its own no-data value is -1000000."""
-    try:
-        v = float(json.loads(payload)["value"])
-    except (TypeError, ValueError, KeyError, json.JSONDecodeError):
-        return None
-    return round(v, 1) if v > -1000 else None
-
-
-def elevation(lat, lon):
-    try:
-        return parse_elevation(get(epqs_url(lat, lon)))
-    except Exception:
-        return None
-
-
-def nhd_url(lat, lon):
-    q = urllib.parse.urlencode({
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": 4326, "spatialRel": "esriSpatialRelIntersects",
-        "distance": 350, "units": "esriSRUnit_Meter",
-        "outFields": "gnis_name,streamorde,slope,totdasqkm,lengthkm,qama",
-        "returnGeometry": "false", "f": "json"})
-    return f"{NHD}?{q}"
-
-
-def nhd_pick(feats, waterbody):
-    """Pick the reach for this site and normalise its attributes.
-
-    Prefers a flowline whose GNIS name matches the waterbody, else the one with
-    the largest drainage area.
-    """
-    if not feats:
-        return {}
-    wb = (waterbody or "").upper().replace(" RIVER", "").replace(" CREEK", "").strip()
-    named = [f for f in feats if wb and f["attributes"].get("gnis_name")
-             and wb in f["attributes"]["gnis_name"].upper()]
-    pool = named or feats
-    best = max(pool, key=lambda f: nhd_number(f["attributes"].get("totdasqkm")) or 0)
-    a = best["attributes"]
-    order = nhd_number(a.get("streamorde"))
-    slope = nhd_number(a.get("slope"))
-    da = nhd_number(a.get("totdasqkm"))
-    qama = nhd_number(a.get("qama"))
-    return {
-        "nhd_name": a.get("gnis_name"),
-        "stream_order": int(order) if order is not None else None,
-        "slope": round(slope, 5) if slope is not None else None,
-        "drainage_area_sqkm": round(da, 1) if da is not None else None,
-        "mean_annual_flow_cfs": round(qama, 1) if qama is not None else None,
-        "name_matched": bool(named),
-    }
-
-
-def nhd_reach(lat, lon, waterbody):
-    """Nearest NHDPlus flowline; prefer a name match, else largest drainage."""
-    try:
-        feats = json.loads(get(nhd_url(lat, lon))).get("features", [])
-    except Exception:
-        return {}
-    return nhd_pick(feats, waterbody)
-
+# The USGS lookups are state-independent and live in shared/usgs.py; they are
+# re-exported here because this script and its tests have always reached them
+# as enrich_usgs.<name>.
+from usgs import (NHD_NODATA, elevation, enrich_site,  # noqa: F401
+                  epqs_url, get, haversine, load_gages, nearest_gage,
+                  nhd_number, nhd_pick, nhd_reach, nhd_url, parse_elevation)
 
 # The three fields copied straight off the NCWRC site record so the enrichment
 # is readable on its own. Everything else in a record is measured by USGS.
@@ -228,28 +97,13 @@ def main():
         sites = sites[:a.limit]
 
     print(f"Loading NC active streamgages ...", flush=True)
-    gages = load_gages()
+    gages = load_gages("nc")
     print(f"  {len(gages)} gages. Enriching {len(sites)} sites ...", flush=True)
-
-    def enrich(s):
-        lat, lon = s["latitude"], s["longitude"]
-        rec = {"locationID": s["locationID"], "locationName": s["locationName"],
-               "waterbodyName": s.get("waterbodyName"),
-               "elevation_m": elevation(lat, lon)}
-        rec.update(nhd_reach(lat, lon, s.get("waterbodyName")))
-        if gages:
-            gid, gname, glat, glon = min(
-                gages, key=lambda g: haversine(lat, lon, g[2], g[3]))
-            rec["nearest_gage"] = {
-                "id": gid, "name": gname,
-                "km": round(haversine(lat, lon, glat, glon), 1),
-                "url": f"https://waterdata.usgs.gov/monitoring-location/{gid}/"}
-        return rec
 
     out = {}
     done = 0
     with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = {ex.submit(enrich, s): s for s in sites}
+        futs = {ex.submit(enrich_site, s, gages): s for s in sites}
         for fut in as_completed(futs):
             r = fut.result()
             out[r["locationID"]] = r

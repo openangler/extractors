@@ -9,10 +9,10 @@ intended to conform to the [`openangler/schema`](https://github.com/openangler/s
 The goal is an open, reproducible dataset for anglers built entirely from
 public data.
 
-> **Status: alpha.** Only **North Carolina** is implemented so far
-> (see [`nc/`](nc/)). The repo is structured so other states get sibling
-> directories (`nc/`, and later `sc/`, `va/`, `ga/`, …), each a self-contained
-> state pipeline.
+> **Status: alpha.** **North Carolina** ([`nc/`](nc/)) has the full
+> pipeline; **South Carolina** ([`sc/`](sc/)) has access points + USGS
+> enrichment. Each state is a self-contained sibling directory writing its own
+> dataset; state-independent code lives in [`shared/`](shared/).
 
 ## Repository layout
 
@@ -42,6 +42,7 @@ All endpoints are public and require no authentication.
 | **NCWRC** — `ncpaws.org/NCWRCMaps/FishingAreas` app JSON + ArcGIS FeatureServers (`services1.arcgis.com/YfqBAUM5nWR3yhGP`) | 911 fishing-access points (amenities, species, management), site photos, and map layers (trout waters, game lands, county boundaries) | `extract_nc_fishing.py`, `build_pmtw_layer.py` |
 | **NCWRC** — `ncwildlife.gov/species/*` profiles + `/media/N/download` PDFs | Structured fish species profiles and linked Inland Fisheries research reports / fact sheets | `species_extract.py` |
 | **USGS** — 3DEP EPQS (`epqs.nationalmap.gov`), NHDPlus HR (`hydro.nationalmap.gov`), NWIS (`waterservices.usgs.gov`) | Point elevation, stream order / slope / drainage / mean-annual-flow, and nearest active streamgage | `enrich_usgs.py`, `build_pmtw_layer.py` |
+| **SCDNR** — "South Carolina Public Water Access PUBLIC VIEW" ArcGIS FeatureServer (`services.arcgis.com/acgZYxoN5Oj8pDLa`) | ~1,030 public water access points (909 freshwater): access type, amenities, species present, trout-water flag | `sc/extract_sc_fishing.py` |
 | **Open-Meteo** (`open-meteo.com`) | Weather/forecast enrichment (used by downstream OpenAngler tooling; not yet exercised by the NC extractors in this repo) | — |
 
 ## Requirements
