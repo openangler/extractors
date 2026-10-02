@@ -15,9 +15,13 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NC = os.path.join(ROOT, "nc")
 TOOLS = os.path.join(ROOT, "tools")
+SC = os.path.join(ROOT, "sc")
+SHARED = os.path.join(ROOT, "shared")
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 
-for _d in (NC, TOOLS):
+# nc/ goes first so `import _common` keeps meaning NC's binding; SC's modules
+# have names of their own, and tests load sc/_common.py by path (load_sc_common).
+for _d in (SHARED, SC, TOOLS, NC):
     if _d not in sys.path:
         sys.path.insert(0, _d)
 
@@ -39,3 +43,13 @@ def fixture(name):
     path = os.path.join(FIXTURES, name)
     with open(path, encoding="utf-8") as f:
         return json.load(f) if name.endswith(".json") else f.read()
+
+
+def load_sc_common():
+    """sc/_common.py under its own module name — `_common` is NC's on sys.path."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "sc_common", os.path.join(SC, "_common.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod

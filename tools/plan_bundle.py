@@ -35,12 +35,11 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nc"))
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "shared"))
 
-# The manifest contract lives in nc/_common.py, which is also what writes it —
-# one implementation of the field-selector rules, not two. When a second state
-# lands, _common.py graduates to a shared module and this import gets shorter.
-import _common                                        # noqa: E402
+# The manifest contract lives in shared/manifest.py, which is also what writes
+# it — one implementation of the field-selector rules, not two.
+import manifest as _common                            # noqa: E402
 
 
 def load_manifest(target):
